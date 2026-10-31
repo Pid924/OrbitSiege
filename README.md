@@ -118,7 +118,6 @@ Godot 4.2 บนเว็บต้องใช้ SharedArrayBuffer แต่ Gi
 ## เวอร์ชัน
 เลขเวอร์ชันอยู่ที่ `VERSION` ใน `scripts/game/game_settings.gd` และ `config/version` ใน `project.godot` (แก้ให้ตรงกันทั้งสองที่)
 แสดงที่มุมขวาล่างของหน้าเมนูและข้างชื่อด่านในเกม รายการเปลี่ยนแปลงอยู่ใน [CHANGELOG.md](CHANGELOG.md)
-แต่ละเวอร์ชันมี git tag เช่น `v1.0.0`
 
 ## ทดสอบแล้ว
 รันด้วย Godot 4.2.2 แบบ headless ให้บอทสู้บอทหลายรอบ เกมจบได้ปกติ ไม่มี error
