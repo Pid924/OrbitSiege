@@ -4,6 +4,7 @@ extends Node
 
 const SpacePhysics := preload("res://scripts/sim/space_physics.gd")
 const Weapons := preload("res://scripts/sim/weapons.gd")
+const GameSettings := preload("res://scripts/game/game_settings.gd")
 
 const THINK_DELAY := 0.7
 const FRAME_BUDGET_USEC := 6000
@@ -35,6 +36,9 @@ func setup(game_ref, team_id: int) -> void:
 	game = game_ref
 	team = team_id
 	rng.randomize()
+	var level: Array = GameSettings.BOT_LEVELS[GameSettings.bot_level]
+	angle_error_deg = level[1]
+	power_error = level[2]
 
 
 func begin_turn(u) -> void:
@@ -48,10 +52,26 @@ func begin_turn(u) -> void:
 	for a in range(-150, 151, 5):
 		for p in range(30, 101, 7):
 			candidates.append([deg_to_rad(a), p / 100.0])
-	# Mostly plasma, sometimes something fancier.
-	var roll := rng.randf()
-	var weapon := 0 if roll < 0.6 else (1 if roll < 0.8 else 2)
-	game.submit_command({"type": "weapon", "team": team, "index": weapon})
+	game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find(_pick_weapon())})
+
+
+## Mostly plasma; uses Last Stand when unlocked, and the special shells now and then.
+## The bot never picks the healer, it only aims at enemies.
+func _pick_weapon() -> String:
+	if game.weapon_available(team, "rage") and rng.randf() < 0.8:
+		return "rage"
+	var weights := {"plasma": 5.0, "cluster": 1.0, "driller": 1.0, "double": 1.0, "triple": 1.0, "snare": 0.7}
+	var total := 0.0
+	for id in weights:
+		if game.weapon_available(team, id):
+			total += weights[id]
+	var roll := rng.randf() * total
+	for id in weights:
+		if game.weapon_available(team, id):
+			roll -= weights[id]
+			if roll <= 0.0:
+				return id
+	return "plasma"
 
 
 func end_turn() -> void:

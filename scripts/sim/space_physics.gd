@@ -7,7 +7,7 @@ const SOFTENING := 30.0
 const MAX_SPEED := 950.0
 const SUBSTEPS := 2
 const DT := 1.0 / (60.0 * SUBSTEPS)
-const MAX_FLIGHT_TIME := 9.0
+const MAX_FLIGHT_TIME := 12.0
 const UNIT_HIT_RADIUS := 12.0
 
 var planets: Array = []  # {"center": Vector2, "radius": float, "mass": float}
@@ -68,3 +68,19 @@ func simulate_shot(start: Vector2, vel: Vector2, terrain, targets: PackedVector2
 				if pos.distance_squared_to(t) < hit_sq:
 					return pos
 	return null
+
+
+## Predicted flight path for the aiming guide: points every few steps, stopping at the first impact.
+func simulate_path(start: Vector2, vel: Vector2, terrain, max_time: float) -> PackedVector2Array:
+	var pts := PackedVector2Array([start])
+	var pos := start
+	var steps := int(minf(max_time, MAX_FLIGHT_TIME) / DT)
+	for i in steps:
+		vel += (gravity_at(pos) + wind) * DT
+		pos += vel * DT
+		if i % 3 == 2:
+			pts.append(pos)
+		if not bounds.has_point(pos) or terrain.is_solid(pos):
+			pts.append(pos)
+			break
+	return pts

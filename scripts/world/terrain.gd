@@ -2,8 +2,8 @@ extends Node2D
 ## Pixel-based destructible terrain. The byte mask is the single source of truth for collisions;
 ## the image is only what gets drawn.
 
-const WIDTH := 1600
-const HEIGHT := 900
+var width := 1600
+var height := 900
 
 # [crust, mantle, core] colours for each planet type.
 const PALETTES := [
@@ -34,9 +34,12 @@ func generate(physics, rng: RandomNumberGenerator) -> void:
 	_finish()
 
 
-## Floating rock islands with gaps between them (the "drift" stage).
+## Floating rock islands with gaps between them. `cfg` is a stage entry from GameSettings.
 ## Returns [{"x0": float, "x1": float}, ...] from left to right, for spawning units.
-func generate_islands(rng: RandomNumberGenerator) -> Array:
+func generate_islands(rng: RandomNumberGenerator, cfg: Dictionary) -> Array:
+	var island_width: Vector2 = cfg.island_width
+	var gap: Vector2 = cfg.gap
+	var depth: Vector2 = cfg.depth
 	_clear()
 	var surface := FastNoiseLite.new()
 	surface.seed = rng.randi()
@@ -48,32 +51,37 @@ func generate_islands(rng: RandomNumberGenerator) -> Array:
 	var islands := []
 	var palette_index := rng.randi() % PALETTES.size()
 	var x := rng.randf_range(40.0, 90.0)
-	while x < WIDTH - 200.0:
-		var w := minf(rng.randf_range(230.0, 380.0), WIDTH - 40.0 - x)
+	while x < width - island_width.x * 0.6:
+		var w := minf(rng.randf_range(island_width.x, island_width.y), width - 40.0 - x)
 		var island := {
 			"x0": x, "x1": x + w,
-			"base": rng.randf_range(330.0, 500.0),
-			"depth": rng.randf_range(110.0, 190.0),
+			"base": rng.randf_range(0.36, 0.5) * height,
+			"depth": rng.randf_range(depth.x, depth.y),
 		}
 		_paint_island(island, surface, jag, speck, PALETTES[palette_index % PALETTES.size()])
 		islands.append(island)
-		x += w + rng.randf_range(70.0, 140.0)
+		x += w + rng.randf_range(gap.x, gap.y)
 	# Small rocks hanging over the gaps (never over an island, so nobody spawns on one).
 	for i in range(islands.size() - 1):
 		if rng.randf() < 0.3:
 			continue
 		var gap_x: float = (islands[i].x1 + islands[i + 1].x0) / 2.0
-		var c := Vector2(gap_x, rng.randf_range(170.0, 330.0))
+		var c := Vector2(gap_x, rng.randf_range(0.18, 0.3) * height)
 		var r := rng.randf_range(22.0, 34.0)
 		_paint_rock(c, r, speck, PALETTES[(palette_index + 2) % PALETTES.size()])
 	_finish()
 	return islands
 
 
+func set_size(size: Vector2) -> void:
+	width = int(size.x)
+	height = int(size.y)
+
+
 func _clear() -> void:
-	image = Image.create(WIDTH, HEIGHT, false, Image.FORMAT_RGBA8)
+	image = Image.create(width, height, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0, 0, 0, 0))
-	mask.resize(WIDTH * HEIGHT)
+	mask.resize(width * height)
 	mask.fill(0)
 
 
@@ -98,9 +106,9 @@ func _paint_island(island: Dictionary, surface: FastNoiseLite, jag: FastNoiseLit
 		var t := (x - cx) / half
 		var edge := clampf(1.0 - t * t, 0.0, 1.0)
 		# Flat-ish top that droops at the ends, tapering rocky underside.
-		var top: float = island.base + 70.0 * surface.get_noise_1d(x) + 40.0 * (1.0 - sqrt(edge))
+		var top: float = island.base + 70.0 * surface.get_noise_1d(x) + 50.0 * (1.0 - sqrt(edge))
 		var bottom: float = top + 20.0 + island.depth * sqrt(edge) + 18.0 * jag.get_noise_1d(x)
-		for y in range(maxi(0, int(top)), mini(HEIGHT - 1, int(bottom)) + 1):
+		for y in range(maxi(0, int(top)), mini(height - 1, int(bottom)) + 1):
 			_paint_pixel(x, y, float(y) - top, bottom - top, speck, palette)
 
 
@@ -114,7 +122,7 @@ func _paint_rock(center: Vector2, radius: float, speck: FastNoiseLite, palette: 
 
 
 func _paint_pixel(x: int, y: int, depth: float, thickness: float, speck: FastNoiseLite, palette: Array) -> void:
-	if x < 0 or y < 0 or x >= WIDTH or y >= HEIGHT:
+	if x < 0 or y < 0 or x >= width or y >= height:
 		return
 	var n := speck.get_noise_2d(x, y)
 	var c: Color
@@ -126,7 +134,7 @@ func _paint_pixel(x: int, y: int, depth: float, thickness: float, speck: FastNoi
 			c = c.darkened(0.25)
 	c = c.lightened(n * 0.08)
 	image.set_pixel(x, y, c)
-	mask[y * WIDTH + x] = 1
+	mask[y * width + x] = 1
 
 
 func _paint_planet(p: Dictionary, shape_noise: FastNoiseLite, speck: FastNoiseLite, palette: Array, offset: float) -> void:
@@ -134,9 +142,9 @@ func _paint_planet(p: Dictionary, shape_noise: FastNoiseLite, speck: FastNoiseLi
 	var radius: float = p.radius
 	var reach := radius * 1.2
 	var x0 := maxi(0, int(center.x - reach))
-	var x1 := mini(WIDTH - 1, int(center.x + reach))
+	var x1 := mini(width - 1, int(center.x + reach))
 	var y0 := maxi(0, int(center.y - reach))
-	var y1 := mini(HEIGHT - 1, int(center.y + reach))
+	var y1 := mini(height - 1, int(center.y + reach))
 	var crust: Color = palette[0]
 	var mantle: Color = palette[1]
 	var core: Color = palette[2]
@@ -162,15 +170,15 @@ func _paint_planet(p: Dictionary, shape_noise: FastNoiseLite, speck: FastNoiseLi
 					c = c.darkened(0.25)
 			c = c.lightened(n * 0.08)
 			image.set_pixel(x, y, c)
-			mask[y * WIDTH + x] = 1
+			mask[y * width + x] = 1
 
 
 func is_solid(pos: Vector2) -> bool:
 	var x := int(floor(pos.x))
 	var y := int(floor(pos.y))
-	if x < 0 or y < 0 or x >= WIDTH or y >= HEIGHT:
+	if x < 0 or y < 0 or x >= width or y >= height:
 		return false
-	return mask[y * WIDTH + x] != 0
+	return mask[y * width + x] != 0
 
 
 func carve(center: Vector2, radius: float) -> void:
@@ -178,12 +186,12 @@ func carve(center: Vector2, radius: float) -> void:
 	var r_sq := radius * radius
 	var rim_sq := rim * rim
 	var x0 := maxi(0, int(center.x - rim))
-	var x1 := mini(WIDTH - 1, int(center.x + rim))
+	var x1 := mini(width - 1, int(center.x + rim))
 	var y0 := maxi(0, int(center.y - rim))
-	var y1 := mini(HEIGHT - 1, int(center.y + rim))
+	var y1 := mini(height - 1, int(center.y + rim))
 	for y in range(y0, y1 + 1):
 		for x in range(x0, x1 + 1):
-			var idx := y * WIDTH + x
+			var idx := y * width + x
 			if mask[idx] == 0:
 				continue
 			var d_sq := center.distance_squared_to(Vector2(x, y))

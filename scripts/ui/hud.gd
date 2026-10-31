@@ -5,7 +5,8 @@ extends CanvasLayer
 const Weapons := preload("res://scripts/sim/weapons.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 
-const CARD_SIZE := Vector2(84, 84)
+const CARD_SIZE := Vector2(66, 66)
+const PANEL_WIDTH := 1010.0
 
 var game
 var info: Label
@@ -17,6 +18,7 @@ var power_bar: ProgressBar
 var wind_gauge: WindGauge
 var wind_title: Label
 var weapon_cards: Array = []
+var ammo_labels: Array = []
 var weapon_name: Label
 var weapon_stats: Label
 var weapon_desc: Label
@@ -55,7 +57,16 @@ func _ready() -> void:
 	stage_label.modulate = Color(1, 1, 1, 0.7)
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
-	help.text = "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   กด SPACE ค้างเพื่อชาร์จ ปล่อยเพื่อยิง   Q/E หรือ 1-3 หรือคลิก = เปลี่ยนอาวุธ   Esc = เมนู"
+	help.text = "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-8 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู"
+
+	var menu_button := Button.new()
+	menu_button.text = "กลับเมนู"
+	menu_button.position = Vector2(1340, 30)
+	menu_button.size = Vector2(110, 38)
+	menu_button.focus_mode = Control.FOCUS_NONE
+	menu_button.add_theme_font_size_override("font_size", 16)
+	menu_button.pressed.connect(func(): game.go_to_menu())
+	add_child(menu_button)
 
 	wind_title = _label(Vector2(1470, 14), 13)
 	wind_gauge = WindGauge.new()
@@ -77,8 +88,8 @@ func _ready() -> void:
 
 func _build_weapon_panel() -> void:
 	var panel := Panel.new()
-	panel.position = Vector2(10, 742)
-	panel.size = Vector2(760, 124)
+	panel.position = Vector2(10, 756)
+	panel.size = Vector2(PANEL_WIDTH, 110)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.03, 0.04, 0.1, 0.75)
 	style.border_color = Color(1, 1, 1, 0.12)
@@ -90,7 +101,7 @@ func _build_weapon_panel() -> void:
 	for i in Weapons.LIST.size():
 		var w := Weapons.get_def(Weapons.LIST[i])
 		var card := Button.new()
-		card.position = Vector2(10 + i * (CARD_SIZE.x + 8), 8)
+		card.position = Vector2(8 + i * (CARD_SIZE.x + 6), 8)
 		card.size = CARD_SIZE
 		card.icon = load(w.icon)
 		card.expand_icon = true
@@ -105,28 +116,38 @@ func _build_weapon_panel() -> void:
 		key.add_theme_font_size_override("font_size", 12)
 		key.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(key)
+		var ammo := Label.new()
+		ammo.position = Vector2(0, CARD_SIZE.y - 18)
+		ammo.size = Vector2(CARD_SIZE.x - 5, 16)
+		ammo.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		ammo.add_theme_font_size_override("font_size", 12)
+		ammo.add_theme_color_override("font_outline_color", Color.BLACK)
+		ammo.add_theme_constant_override("outline_size", 3)
+		ammo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(ammo)
+		ammo_labels.append(ammo)
 		weapon_cards.append(card)
 
-	var text_x := 10 + Weapons.LIST.size() * (CARD_SIZE.x + 8) + 8
+	var text_x := 8 + Weapons.LIST.size() * (CARD_SIZE.x + 6) + 6
 	weapon_name = Label.new()
-	weapon_name.position = Vector2(text_x, 6)
+	weapon_name.position = Vector2(text_x, 2)
 	weapon_name.add_theme_font_size_override("font_size", 20)
 	panel.add_child(weapon_name)
 	weapon_stats = Label.new()
-	weapon_stats.position = Vector2(text_x, 34)
+	weapon_stats.position = Vector2(text_x, 28)
 	weapon_stats.add_theme_font_size_override("font_size", 13)
 	weapon_stats.modulate = Color(1, 0.85, 0.5)
 	panel.add_child(weapon_stats)
 	weapon_desc = Label.new()
-	weapon_desc.position = Vector2(text_x, 54)
-	weapon_desc.size = Vector2(760 - text_x - 12, 40)
+	weapon_desc.position = Vector2(text_x, 46)
+	weapon_desc.size = Vector2(PANEL_WIDTH - text_x - 10, 40)
 	weapon_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	weapon_desc.add_theme_font_size_override("font_size", 14)
+	weapon_desc.add_theme_font_size_override("font_size", 13)
 	panel.add_child(weapon_desc)
 
 	power_bar = ProgressBar.new()
-	power_bar.position = Vector2(10, 100)
-	power_bar.size = Vector2(740, 14)
+	power_bar.position = Vector2(8, 82)
+	power_bar.size = Vector2(PANEL_WIDTH - 16, 14)
 	power_bar.max_value = 1.0
 	power_bar.step = 0.0
 	power_bar.show_percentage = false
@@ -161,13 +182,18 @@ func _process(delta: float) -> void:
 	var current: String = game.current_weapon_id()
 	var w := Weapons.get_def(current)
 	weapon_name.text = w.name
-	weapon_stats.text = "ดาเมจ %d   รัศมีระเบิด %d" % [w.damage, w.radius]
-	if w.has("bomblets"):
-		weapon_stats.text += "   ลูกย่อย %d" % w.bomblets
+	weapon_stats.text = _stats_text(w)
 	weapon_desc.text = w.desc
+	var view_team: int = 0 if not game.autoplay else game.current_team
 	for i in weapon_cards.size():
-		var selected: bool = Weapons.LIST[i] == current
-		weapon_cards[i].modulate = Color(1, 1, 1) if selected else Color(0.55, 0.55, 0.6)
+		var id: String = Weapons.LIST[i]
+		var selected: bool = id == current
+		var left: int = game.ammo_left(view_team, id)
+		var usable: bool = game.weapon_available(view_team, id) if game.current_team == view_team else left != 0
+		ammo_labels[i].text = "∞" if left < 0 else "x%d" % left
+		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
+			ammo_labels[i].text = "≤40%"
+		weapon_cards[i].modulate = Color(1, 1, 1) if selected else (Color(0.7, 0.7, 0.75) if usable else Color(0.3, 0.3, 0.35))
 		weapon_cards[i].add_theme_stylebox_override("normal", _card_style(selected))
 		weapon_cards[i].add_theme_stylebox_override("hover", _card_style(selected, true))
 	var lines := []
@@ -184,6 +210,26 @@ func _process(delta: float) -> void:
 	if game.phase != game.Phase.GAME_OVER and _banner_time > 0.0:
 		_banner_time -= delta
 		banner.modulate.a = clampf(_banner_time, 0.0, 1.0)
+
+
+func _stats_text(w: Dictionary) -> String:
+	var parts := []
+	if w.has("heal"):
+		parts.append("ฮีล %d" % w.heal)
+		parts.append("ดาเมจศัตรู %d" % w.damage)
+		parts.append("รัศมี %d" % w.heal_radius)
+	else:
+		parts.append("ดาเมจ %d" % w.damage)
+		parts.append("รัศมีระเบิด %d" % w.radius)
+	if w.has("bomblets"):
+		parts.append("ลูกย่อย %d" % w.bomblets)
+	if w.has("shots"):
+		parts.append("ยิง %d ครั้ง" % w.shots)
+	if w.has("spread"):
+		parts.append("%d นัดพร้อมกัน" % w.spread)
+	if w.has("root_radius"):
+		parts.append("วงตาข่าย %d" % w.root_radius)
+	return "   ".join(parts)
 
 
 var _styles := {}

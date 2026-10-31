@@ -6,6 +6,7 @@ signal fell(unit)
 const MAX_HP := 100
 const WALK_SPEED := 45.0
 const CLIMB := 6
+const SAFE_DROP := 28  # walking never steps off a ledge deeper than this
 const AIM_LIMIT := 2.8
 
 var unit_id := 0
@@ -20,6 +21,7 @@ var velocity := Vector2.ZERO
 var grounded := false
 var up := Vector2.UP
 var is_active := false
+var rooted_turns := 0  # own turns left during which this unit cannot walk
 
 var physics
 var terrain
@@ -83,8 +85,9 @@ func _land() -> void:
 
 
 func walk(dir: int, dt: float) -> void:
-	if not grounded or not alive or dir == 0:
+	if not grounded or not alive or dir == 0 or rooted_turns > 0:
 		return
+	var start := position
 	var tangent := Vector2(-up.y, up.x)
 	var next := position + tangent * dir * WALK_SPEED * dt
 	var climbed := 0
@@ -94,12 +97,20 @@ func walk(dir: int, dt: float) -> void:
 	if terrain.is_solid(next):
 		return  # wall too steep
 	position = next
-	for i in CLIMB:
+	for i in SAFE_DROP:
 		if terrain.is_solid(position - up):
-			break
+			return
 		position -= up
-	if not terrain.is_solid(position - up * 2.0):
-		grounded = false
+	# No ground within a safe drop: stop at the edge instead of walking off.
+	position = start
+
+
+func heal(amount: int) -> int:
+	if not alive:
+		return 0
+	var before := hp
+	hp = mini(MAX_HP, hp + amount)
+	return hp - before
 
 
 func take_damage(amount: int) -> void:
@@ -151,6 +162,12 @@ func _draw() -> void:
 	draw_line(Vector2(0, -18), Vector2(0, -23), color.lightened(0.3), 1.5)
 	draw_circle(Vector2(0, -24), 1.8, color.lightened(0.5))
 	draw_set_transform(Vector2.ZERO, 0.0)
+	if rooted_turns > 0:
+		var c := up * 9.0
+		draw_arc(c, 15.0, 0, TAU, 24, Color(0.5, 0.8, 1.0, 0.9), 2.0)
+		for k in 6:
+			var a := float(k) / 6.0 * TAU + _bob
+			draw_line(c + Vector2.from_angle(a) * 11.0, c + Vector2.from_angle(a) * 19.0, Color(0.6, 0.9, 1.0, 0.8), 1.5)
 	# Screen-aligned label and HP bar above the head.
 	var font := ThemeDB.fallback_font
 	var head := up * 36.0

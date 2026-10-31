@@ -4,6 +4,9 @@ extends Node2D
 const Starfield := preload("res://scripts/world/starfield.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 
+var guide_button: Button
+var bot_button: Button
+
 
 func _ready() -> void:
 	ThemeDB.fallback_font = preload("res://assets/fonts/ui_font.tres")
@@ -15,27 +18,39 @@ func _ready() -> void:
 
 	var ui := CanvasLayer.new()
 	add_child(ui)
-	var title := _label("ORBIT SIEGE", Vector2(0, 150), 84)
+	var title := _label("ORBIT SIEGE", Vector2(0, 70), 84)
 	title.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
 	ui.add_child(title)
-	ui.add_child(_label("เกมยิงปืนใหญ่ผลัดตาในอวกาศ  ·  เลือกด่าน", Vector2(0, 270), 22))
+	ui.add_child(_label("เกมยิงปืนใหญ่ผลัดตาในอวกาศ  ·  ตั้งค่าแล้วเลือกด่านเพื่อเริ่ม", Vector2(0, 185), 22))
+
+	guide_button = _option_button(Vector2(400, 240))
+	guide_button.pressed.connect(func():
+		GameSettings.guide = (GameSettings.guide + 1) % GameSettings.GUIDE_OPTIONS.size()
+		_refresh_options())
+	ui.add_child(guide_button)
+	bot_button = _option_button(Vector2(810, 240))
+	bot_button.pressed.connect(func():
+		GameSettings.bot_level = (GameSettings.bot_level + 1) % GameSettings.BOT_LEVELS.size()
+		_refresh_options())
+	ui.add_child(bot_button)
+	_refresh_options()
 
 	for i in GameSettings.STAGE_ORDER.size():
 		var id: String = GameSettings.STAGE_ORDER[i]
 		var stage: Dictionary = GameSettings.STAGES[id]
 		var b := Button.new()
-		b.position = Vector2(400, 360 + i * 130)
-		b.size = Vector2(800, 110)
+		b.position = Vector2(400, 320 + i * 118)
+		b.size = Vector2(800, 104)
 		b.pressed.connect(_start.bind(id))
 		var heading := Label.new()
 		heading.text = "ด่าน %d: %s" % [i + 1, stage.name]
-		heading.position = Vector2(24, 12)
+		heading.position = Vector2(24, 8)
 		heading.add_theme_font_size_override("font_size", 26)
 		heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(heading)
 		var desc := Label.new()
 		desc.text = stage.desc
-		desc.position = Vector2(24, 54)
+		desc.position = Vector2(24, 50)
 		desc.size = Vector2(752, 48)
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc.add_theme_font_size_override("font_size", 16)
@@ -45,7 +60,21 @@ func _ready() -> void:
 		ui.add_child(b)
 		if i == 0:
 			b.grab_focus()
-	ui.add_child(_label("กด 1 / 2 หรือคลิกเพื่อเริ่ม", Vector2(0, 640), 16))
+	ui.add_child(_label("คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม" % GameSettings.STAGE_ORDER.size(), Vector2(0, 690), 16))
+
+
+func _option_button(pos: Vector2) -> Button:
+	var b := Button.new()
+	b.position = pos
+	b.size = Vector2(390, 50)
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", 18)
+	return b
+
+
+func _refresh_options() -> void:
+	guide_button.text = "เส้นนำวิถีกระสุน: %s  ▸" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
+	bot_button.text = "ความยากบอท: %s  ▸" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
 
 
 func _label(text: String, pos: Vector2, font_size: int) -> Label:

@@ -17,6 +17,8 @@ const PlayerController := preload("res://scripts/controllers/player_controller.g
 const BotController := preload("res://scripts/controllers/bot_controller.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
+const AimGuide := preload("res://scripts/game/aim_guide.gd")
+const CameraRig := preload("res://scripts/game/camera_rig.gd")
 
 enum Phase { AIMING, FLYING, SETTLING, GAME_OVER }
 
@@ -24,7 +26,8 @@ const TURN_TIME := 30.0
 const UNITS_PER_TEAM := 3
 const PLANET_COUNT := 5
 const DRIFT_GRAVITY := 260.0
-const ABYSS_Y := 825.0  # drift stage: below this line a unit is lost in the gas giant
+const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a unit is lost in the gas giant
+const REFIRE_DELAY := 0.35
 const MAX_WIND := 55.0
 const TEAM_COLORS := [Color(0.35, 0.8, 1.0), Color(1.0, 0.45, 0.4)]
 const TEAM_NAMES := ["ผู้เล่น", "บอท"]
@@ -34,6 +37,8 @@ signal turn_started(team: int, unit)
 signal game_over(winner: int)
 
 var stage := "drift"
+var world_size := Vector2(1600, 900)
+var abyss_y := INF
 var match_seed := 0
 var rng := RandomNumberGenerator.new()
 var physics := SpacePhysics.new()
@@ -47,6 +52,11 @@ var phase := Phase.AIMING
 var current_team := 1  # flipped to 0 by the first turn
 var team_cursor := [0, 0]
 var team_weapon := [0, 0]
+var team_ammo := [{}, {}]  # weapon id -> uses left, only for weapons with limited ammo
+var shots_left := 0
+var refire_timer := 0.0
+var last_shot := {}
+var last_power := {}  # unit_id -> power of that unit's previous shot, for the aim guide
 var active_unit = null
 var turn_time_left := TURN_TIME
 var settle_time := 0.0
@@ -54,8 +64,8 @@ var turn_number := 0
 var winner := -1
 
 var autoplay := false
-var camera: Camera2D
-var shake := 0.0
+var camera
+var aim_guide
 
 
 func _ready() -> void:
@@ -71,21 +81,36 @@ func _ready() -> void:
 
 
 func _build_world() -> void:
+	var cfg: Dictionary = GameSettings.STAGES[stage]
+	world_size = cfg.size
 	var stars := Starfield.new()
 	add_child(stars)
-	stars.generate(rng)
+	stars.generate(rng, world_size)
 
 	terrain = Terrain.new()
+	terrain.set_size(world_size)
 	add_child(terrain)
-	if stage == "drift":
+	if cfg.kind == "islands":
+		abyss_y = world_size.y - ABYSS_MARGIN
 		stars.abyss = true
+		stars.abyss_y = abyss_y
 		physics.uniform_gravity = Vector2(0, DRIFT_GRAVITY)
-		physics.bounds = Rect2(-300, -2500, Terrain.WIDTH + 600, 2500 + ABYSS_Y)
-		_spawn_units_on_islands(terrain.generate_islands(rng))
+		physics.bounds = Rect2(-400, -3000, world_size.x + 800, 3000 + abyss_y)
+		_spawn_units_on_islands(terrain.generate_islands(rng, cfg))
 	else:
+		physics.bounds = Rect2(Vector2(-250, -250), world_size + Vector2(500, 500))
 		_generate_planets()
 		terrain.generate(physics, rng)
 		_spawn_units()
+
+	for team in 2:
+		for id in Weapons.LIST:
+			var w := Weapons.get_def(id)
+			if w.has("ammo"):
+				team_ammo[team][id] = int(w.ammo)
+
+	aim_guide = AimGuide.new()
+	add_child(aim_guide)
 
 	# `-- --autoplay` lets two bots play each other (demo / smoke test).
 	autoplay = "--autoplay" in OS.get_cmdline_user_args()
@@ -94,9 +119,9 @@ func _build_world() -> void:
 		add_child(controllers[team])
 		controllers[team].setup(self, team)
 
-	camera = Camera2D.new()
-	camera.position = Vector2(Terrain.WIDTH, Terrain.HEIGHT) / 2.0
+	camera = CameraRig.new()
 	add_child(camera)
+	camera.setup(Rect2(Vector2.ZERO, world_size), Vector2(0, 160) if abyss_y < INF else Vector2.ZERO)
 
 	var hud := Hud.new()
 	add_child(hud)
@@ -108,7 +133,7 @@ func _generate_planets() -> void:
 	while (physics.planets.size() < PLANET_COUNT and tries < 2000) or physics.planets.size() < 3:
 		tries += 1
 		var r := rng.randf_range(70.0, 140.0)
-		var c := Vector2(rng.randf_range(r + 50.0, Terrain.WIDTH - r - 50.0), rng.randf_range(r + 90.0, Terrain.HEIGHT - r - 40.0))
+		var c := Vector2(rng.randf_range(r + 50.0, world_size.x - r - 50.0), rng.randf_range(r + 90.0, world_size.y - r - 40.0))
 		var ok := true
 		for p in physics.planets:
 			if c.distance_to(p.center) < r + p.radius + 110.0:
@@ -156,14 +181,14 @@ func _spawn_units_on_islands(islands: Array) -> void:
 
 
 func _find_island_spawn(islands: Array) -> Vector2:
-	var best := Vector2(Terrain.WIDTH / 2.0, 100)
+	var best := Vector2(world_size.x / 2.0, 100)
 	for attempt in 60:
 		var island: Dictionary = islands[rng.randi() % islands.size()]
 		var x := rng.randf_range(lerpf(island.x0, island.x1, 0.12), lerpf(island.x0, island.x1, 0.88))
 		var pos := Vector2(x, 0)
-		while pos.y < ABYSS_Y and not terrain.is_solid(pos + Vector2.DOWN):
+		while pos.y < abyss_y and not terrain.is_solid(pos + Vector2.DOWN):
 			pos.y += 1.0
-		if pos.y >= ABYSS_Y:
+		if pos.y >= abyss_y:
 			continue
 		best = pos
 		var clear := true
@@ -187,7 +212,7 @@ func _find_spawn_point(planet: Dictionary) -> Vector2:
 		var pos := center + dir * radius * 1.4
 		while not terrain.is_solid(pos - dir) and pos.distance_to(center) > 1.0:
 			pos -= dir
-		if not Rect2(10, 10, Terrain.WIDTH - 20, Terrain.HEIGHT - 20).has_point(pos):
+		if not Rect2(Vector2(10, 10), world_size - Vector2(20, 20)).has_point(pos):
 			continue
 		if physics.up_at(pos).dot(dir) < 0.9:
 			continue  # another planet pulls harder here
@@ -225,6 +250,27 @@ func current_weapon_id(team: int = -1) -> String:
 	return Weapons.LIST[team_weapon[team]]
 
 
+## Uses left for a team, or -1 when unlimited.
+func ammo_left(team: int, weapon_id: String) -> int:
+	return team_ammo[team].get(weapon_id, -1)
+
+
+## Whether `team` may fire this weapon now (ammo, and HP condition for the active unit).
+func weapon_available(team: int, weapon_id: String) -> bool:
+	if ammo_left(team, weapon_id) == 0:
+		return false
+	var w := Weapons.get_def(weapon_id)
+	if w.has("hp_ratio_max"):
+		if active_unit == null or active_unit.team != team:
+			return false
+		return float(active_unit.hp) / active_unit.MAX_HP <= w.hp_ratio_max
+	return true
+
+
+func go_to_menu() -> void:
+	get_tree().change_scene_to_file("res://scenes/menu.tscn")
+
+
 func _apply_command(cmd: Dictionary) -> void:
 	if not is_turn_of(cmd.get("team", -1)):
 		return
@@ -236,18 +282,40 @@ func _apply_command(cmd: Dictionary) -> void:
 		"charge":
 			active_unit.charge = clampf(cmd.value, 0.0, 1.0)
 		"weapon":
-			team_weapon[current_team] = posmod(int(cmd.index), Weapons.LIST.size())
+			var index := posmod(int(cmd.index), Weapons.LIST.size())
+			if weapon_available(current_team, Weapons.LIST[index]):
+				team_weapon[current_team] = index
 		"fire":
 			_fire(clampf(cmd.angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT), clampf(cmd.power, 0.05, 1.0))
 
 
 func _fire(angle: float, power: float) -> void:
-	active_unit.aim_angle = angle
+	var weapon := current_weapon_id()
+	if not weapon_available(current_team, weapon):
+		weapon = Weapons.LIST[0]
+		team_weapon[current_team] = 0
+	if team_ammo[current_team].has(weapon):
+		team_ammo[current_team][weapon] -= 1
+	var w := Weapons.get_def(weapon)
 	active_unit.charge = 0.0
-	var vel: Vector2 = active_unit.aim_dir() * power * SpacePhysics.MAX_SPEED
-	_spawn_projectile(active_unit.muzzle(), vel, current_weapon_id())
+	last_power[active_unit.unit_id] = power
+	last_shot = {"angle": angle, "power": power, "weapon": weapon}
+	shots_left = int(w.get("shots", 1)) - 1
+	_launch(last_shot)
 	phase = Phase.FLYING
+	aim_guide.clear()
 	controllers[current_team].end_turn()
+
+
+func _launch(shot: Dictionary) -> void:
+	var w := Weapons.get_def(shot.weapon)
+	var count := int(w.get("spread", 1))
+	var step := deg_to_rad(w.get("spread_deg", 0.0))
+	for k in count:
+		active_unit.aim_angle = shot.angle + (k - (count - 1) / 2.0) * step
+		var vel: Vector2 = active_unit.aim_dir() * shot.power * SpacePhysics.MAX_SPEED
+		_spawn_projectile(active_unit.muzzle(), vel, shot.weapon)
+	active_unit.aim_angle = shot.angle
 
 
 func _spawn_projectile(pos: Vector2, vel: Vector2, weapon: String, ignore_time := 0.15) -> void:
@@ -277,16 +345,37 @@ func _physics_process(delta: float) -> void:
 					projectiles.erase(p)
 					p.queue_free()
 			if projectiles.is_empty():
-				_begin_settling()
+				if shots_left > 0 and active_unit.alive:
+					refire_timer += delta
+					if refire_timer >= REFIRE_DELAY:
+						refire_timer = 0.0
+						shots_left -= 1
+						_launch(last_shot)
+				else:
+					_begin_settling()
 		Phase.SETTLING:
 			settle_time -= delta
 			if (settle_time <= 0.0 and _all_grounded()) or settle_time < -4.0:
 				_end_turn()
 
 
-func _process(delta: float) -> void:
-	shake = maxf(0.0, shake - delta * 30.0)
-	camera.offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
+func _process(_delta: float) -> void:
+	if phase == Phase.FLYING and not projectiles.is_empty():
+		camera.follow(projectiles[0].position)
+	elif active_unit:
+		camera.follow(active_unit.position)
+	_update_aim_guide()
+
+
+func _update_aim_guide() -> void:
+	var guide_time: float = GameSettings.GUIDE_OPTIONS[GameSettings.guide][1]
+	if guide_time <= 0.0 or autoplay or not is_turn_of(0):
+		aim_guide.clear()
+		return
+	var power: float = active_unit.charge if active_unit.charge > 0.0 else last_power.get(active_unit.unit_id, 0.6)
+	var vel: Vector2 = active_unit.aim_dir() * power * SpacePhysics.MAX_SPEED
+	var color: Color = Weapons.get_def(current_weapon_id()).color
+	aim_guide.show_path(physics.simulate_path(active_unit.muzzle(), vel, terrain, guide_time), color)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -295,7 +384,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.physical_keycode == KEY_R and (phase == Phase.GAME_OVER or event.ctrl_pressed):
 		get_tree().reload_current_scene()
 	elif event.physical_keycode == KEY_ESCAPE:
-		get_tree().change_scene_to_file("res://scenes/menu.tscn")
+		go_to_menu()
 
 
 func _begin_settling() -> void:
@@ -329,17 +418,29 @@ func unit_hit_points() -> PackedVector2Array:
 func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 	var w := Weapons.get_def(weapon_id)
 	var radius: float = w.radius
-	terrain.carve(pos, radius)
-	var reach := radius * 1.5
+	var shooter_team: int = current_team
+	if radius > 0.0:
+		terrain.carve(pos, radius)
+	var reach: float = maxf(radius * 1.5, w.get("heal_radius", 0.0))
 	for u in units:
 		if not u.alive:
 			continue
 		var c: Vector2 = u.body_center()
 		var d := c.distance_to(pos)
+		if w.has("root_radius") and u.team != shooter_team and d < w.root_radius:
+			u.rooted_turns = 1
+			_float_text(c + Vector2(0, -46), "ติดตาข่าย!", Color(0.6, 0.85, 1.0))
 		if d >= reach:
+			continue
+		if w.has("heal") and u.team == shooter_team:
+			var healed: int = u.heal(int(w.heal))
+			if healed > 0:
+				_float_text(c + Vector2(0, -30), "+%d" % healed, Color(0.5, 1.0, 0.55))
 			continue
 		var f := 1.0 - d / reach
 		var dmg := int(round(w.damage * f))
+		if dmg <= 0:
+			continue
 		u.take_damage(dmg)
 		_float_text(c + Vector2(0, -30), "-%d" % dmg, Color(1, 0.85, 0.4))
 	if w.has("bomblets"):
@@ -348,13 +449,13 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 			var dir := back.rotated(rng.randf_range(-1.1, 1.1))
 			_spawn_projectile(pos + dir * 6.0, dir * rng.randf_range(180.0, 300.0), "bomblet", 0.05)
 	var fx := Explosion.new()
-	fx.setup(pos, radius, w.color)
+	fx.setup(pos, maxf(radius, w.get("root_radius", w.get("heal_radius", 0.0)) * 0.7), w.color)
 	add_child(fx)
-	shake = maxf(shake, radius * 0.3)
+	camera.shake = maxf(camera.shake, radius * 0.3)
 
 
 func _on_unit_fell(unit) -> void:
-	var pos: Vector2 = unit.position.clamp(Vector2(40, 40), Vector2(Terrain.WIDTH - 40, ABYSS_Y - 30))
+	var pos: Vector2 = unit.position.clamp(Vector2(40, 40), Vector2(world_size.x - 40, minf(abyss_y, world_size.y) - 30))
 	_float_text(pos, "%s หายไปในอวกาศ!" % unit.unit_name, Color(1, 0.5, 0.5))
 
 
@@ -378,6 +479,7 @@ func _end_turn() -> void:
 	if active_unit:
 		active_unit.is_active = false
 		active_unit.charge = 0.0
+		active_unit.rooted_turns = maxi(0, active_unit.rooted_turns - 1)
 	var a := alive_count(0)
 	var b := alive_count(1)
 	if a == 0 or b == 0:
@@ -403,6 +505,11 @@ func _start_turn() -> void:
 			break
 	physics.wind = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, MAX_WIND)
 	active_unit.is_active = true
+	if not weapon_available(current_team, current_weapon_id()):
+		team_weapon[current_team] = 0
+	shots_left = 0
+	refire_timer = 0.0
+	camera.follow(active_unit.position, true)
 	turn_time_left = TURN_TIME
 	command_queue.clear()
 	phase = Phase.AIMING

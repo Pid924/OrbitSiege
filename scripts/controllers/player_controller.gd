@@ -1,6 +1,8 @@
 extends Node
 ## Local human input. Converts keys into match commands; never touches units directly.
 
+const Weapons := preload("res://scripts/sim/weapons.gd")
+
 const AIM_SPEED := 1.4
 const FINE_AIM_SPEED := 0.3
 const CHARGE_TIME := 1.6
@@ -69,12 +71,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			index -= 1
 		KEY_E, KEY_TAB:
 			index += 1
-		KEY_1:
-			index = 0
-		KEY_2:
-			index = 1
-		KEY_3:
-			index = 2
 		_:
-			return
+			var n: int = event.physical_keycode - KEY_1
+			if n < 0 or n >= Weapons.LIST.size():
+				return
+			index = n
+	# Q/E skip weapons that cannot be used right now.
+	var step := 1 if event.physical_keycode in [KEY_E, KEY_TAB] else (-1 if event.physical_keycode == KEY_Q else 0)
+	for i in Weapons.LIST.size():
+		if step == 0 or game.weapon_available(team, Weapons.LIST[posmod(index, Weapons.LIST.size())]):
+			break
+		index += step
 	game.submit_command({"type": "weapon", "team": team, "index": index})
