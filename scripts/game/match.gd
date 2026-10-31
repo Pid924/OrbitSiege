@@ -73,6 +73,7 @@ var last_shot := {}
 var crates: Array = []
 var turns_since_drop := 0
 var turn_event := ""  # id from EVENTS, or "" for a normal turn
+var team_boost := [0.0, 0.0]  # extra damage for the team's next shot, from Nano Mender
 var shot_dmg_mult := 1.0
 var shot_radius_mult := 1.0
 var pending_strikes: Array = []  # {"pos", "axis", "weapon", "time"} for sky beams on their way down
@@ -328,6 +329,9 @@ func _fire(angle: float, power: float) -> void:
 		shot_dmg_mult *= 1.1
 	elif turn_event == "dmg_down":
 		shot_dmg_mult *= 0.9
+	if team_boost[current_team] > 0.0 and not w.has("boost"):
+		shot_dmg_mult *= 1.0 + team_boost[current_team]
+		team_boost[current_team] = 0.0
 	shot_radius_mult = 1.1 if turn_event == "blast_up" else 1.0
 	_launch(last_shot)
 	# Special weapons are one-off picks: the next turn starts back on weapon 1.
@@ -469,7 +473,10 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 	var radius: float = w.radius * shot_radius_mult
 	var shooter_team: int = current_team
 	if radius > 0.0:
-		terrain.carve(pos, radius)
+		terrain.carve(pos, w.get("carve", w.radius) * shot_radius_mult)
+	if w.has("boost"):
+		team_boost[shooter_team] = w.boost
+		_float_text(pos + Vector2(0, -60), "นัดถัดไปแรงขึ้น %d%%" % int(w.boost * 100), Color(0.5, 1.0, 0.6))
 	var reach: float = maxf(radius * 1.5, w.get("heal_radius", 0.0))
 	for u in units:
 		if not u.alive:

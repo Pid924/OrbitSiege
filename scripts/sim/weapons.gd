@@ -7,6 +7,8 @@ extends RefCounted
 ##   hp_ratio_max only usable while the shooter's HP is at or below this ratio
 ##   root_radius  enemies inside cannot walk on their next turn
 ##   heal, heal_radius  heals teammates in range; no crater
+##   boost        the team's next shot (any weapon) deals this much more damage
+##   carve        crater radius when it differs from the damage radius
 ##   drill_time   keeps boring through the ground before detonating
 ##   homing       after homing_delay, locks on the nearest enemy and steers at turn_rate (rad/s)
 ##   strike_width marks a spot; a beam from the sky then hits a strip this wide (each side)
@@ -20,9 +22,9 @@ const DATA := {
 		"desc": "กระสุนพลาสมามาตรฐาน ระเบิดวงกว้าง ดาเมจสูง ใช้ได้ไม่จำกัด",
 	},
 	"cluster": {
-		"name": "Star Cluster", "radius": 24.0, "damage": 20.0, "ammo": 5,
+		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 5,
 		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "icon": "res://assets/weapons/cluster.png",
-		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูกกระจายรอบจุดตก เหมาะกับศัตรูที่ยืนใกล้กัน",
+		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูกกระจายรอบจุดตก กินพื้นหายไปเยอะ เหมาะกับศัตรูที่ยืนใกล้กัน",
 	},
 	"driller": {
 		"name": "Void Driller", "radius": 34.0, "damage": 40.0, "ammo": 3,
@@ -30,12 +32,12 @@ const DATA := {
 		"desc": "เจาะทะลุพื้นลึกเข้าไปเกือบวินาทีแล้วค่อยระเบิด ขุดถึงศัตรูที่หลบหลังกำบัง",
 	},
 	"double": {
-		"name": "Twin Strike", "radius": 30.0, "damage": 28.0, "ammo": 2, "shots": 2,
+		"name": "Twin Strike", "radius": 30.0, "damage": 40.0, "ammo": 2, "shots": 2,
 		"color": Color(0.5, 1.0, 0.7), "icon": "res://assets/weapons/double.png",
 		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
-		"name": "Trident", "radius": 26.0, "damage": 26.0, "ammo": 2, "spread": 3, "spread_deg": 6.0,
+		"name": "Trident", "radius": 26.0, "damage": 35.0, "ammo": 2, "spread": 3, "spread_deg": 6.0,
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
 		"desc": "ยิงออกเป็น 3 นัดพร้อมกันแบบพัด กระจายโดนศัตรูได้ถึง 3 ตัว",
 	},
@@ -50,9 +52,9 @@ const DATA := {
 		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงจะเดินและหมุนปืนไม่ได้ในตาถัดไปของตัวเอง",
 	},
 	"mender": {
-		"name": "Nano Mender", "radius": 0.0, "damage": 10.0, "ammo": 2, "heal": 25, "heal_radius": 130.0,
+		"name": "Nano Mender", "radius": 0.0, "damage": 10.0, "ammo": 2, "heal": 25, "heal_radius": 130.0, "boost": 0.5,
 		"color": Color(0.4, 1.0, 0.5), "icon": "res://assets/weapons/mender.png",
-		"desc": "ยิงใส่กลุ่มเพื่อนเพื่อฮีล 25 HP ให้ทุกคนในวง ศัตรูที่อยู่ในวงโดนดาเมจเล็กน้อย",
+		"desc": "ฮีล 25 HP ให้เพื่อนทุกคนในวง และนัดถัดไปของทีม (อาวุธใดก็ได้) แรงขึ้น 50%",
 	},
 	"seeker": {
 		"name": "Hunter Seeker", "radius": 34.0, "damage": 50.0, "ammo": 1,
@@ -68,7 +70,7 @@ const DATA := {
 	},
 	# Spawned by the cluster shell, not selectable.
 	"bomblet": {
-		"name": "Bomblet", "radius": 20.0, "damage": 14.0,
+		"name": "Bomblet", "radius": 20.0, "carve": 32.0, "damage": 14.0,
 		"color": Color(1.0, 0.55, 0.2),
 	},
 }

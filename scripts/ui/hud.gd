@@ -208,6 +208,8 @@ func _process(delta: float) -> void:
 			if unit.team == team:
 				hp += unit.hp
 		var line := "%s  เหลือ %d คน  %d HP" % [game.TEAM_NAMES[team], game.alive_count(team), hp]
+		if game.team_boost[team] > 0.0:
+			line += "   ⚡ นัดถัดไปแรงขึ้น %d%%" % int(game.team_boost[team] * 100)
 		lines.append(line)
 	teams_label.text = "\n".join(lines)
 	wind_gauge.wind = game.physics.wind
