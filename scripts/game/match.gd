@@ -20,6 +20,7 @@ const GameSettings := preload("res://scripts/game/game_settings.gd")
 const AimGuide := preload("res://scripts/game/aim_guide.gd")
 const CameraRig := preload("res://scripts/game/camera_rig.gd")
 const SkyBeam := preload("res://scripts/game/sky_beam.gd")
+const Crate := preload("res://scripts/game/crate.gd")
 
 enum Phase { AIMING, FLYING, SETTLING, GAME_OVER }
 
@@ -30,6 +31,19 @@ const DRIFT_GRAVITY := 260.0
 const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a unit is lost in the gas giant
 const REFIRE_DELAY := 0.35
 const MAX_WIND := 55.0
+const MAX_CRATES := 4
+const CRATE_HEAL := 35
+const POWER_BONUS := 0.25
+const EVENT_CHANCE := 0.4
+## Turn events: [id, banner text]. Effects are applied in _start_turn / on_detonation.
+const EVENTS := [
+	["dmg_up", "ทุกนัดในเทิร์นนี้แรงขึ้น 10%"],
+	["dmg_down", "ทุกนัดในเทิร์นนี้เบาลง 10%"],
+	["time_down", "เวลาเทิร์นนี้ลดลง 5 วินาที"],
+	["time_up", "เวลาเทิร์นนี้เพิ่มขึ้น 5 วินาที"],
+	["blast_up", "ระเบิดเทิร์นนี้กว้างขึ้น 10%"],
+]
+const AMMO_LOOT := ["cluster", "driller", "double", "triple", "snare", "mender", "seeker", "sky"]
 const TEAM_COLORS := [Color(0.35, 0.8, 1.0), Color(1.0, 0.45, 0.4)]
 const TEAM_NAMES := ["ผู้เล่น", "บอท"]
 const UNIT_NAMES := [["Nova", "Orion", "Vega"], ["Zr-1", "Zr-2", "Zr-3"]]
@@ -57,6 +71,12 @@ var team_ammo := [{}, {}]  # weapon id -> uses left, only for weapons with limit
 var shots_left := 0
 var refire_timer := 0.0
 var last_shot := {}
+var crates: Array = []
+var turns_since_drop := 0
+var turn_event := ""  # id from EVENTS, or "" for a normal turn
+var team_power := [false, false]  # next shot gets POWER_BONUS from a crate
+var shot_dmg_mult := 1.0
+var shot_radius_mult := 1.0
 var pending_strikes: Array = []  # {"pos", "axis", "weapon", "time"} for sky beams on their way down
 var last_power := {}  # unit_id -> power of that unit's previous shot, for the aim guide
 var active_unit = null
@@ -303,6 +323,15 @@ func _fire(angle: float, power: float) -> void:
 	last_power[active_unit.unit_id] = power
 	last_shot = {"angle": angle, "power": power, "weapon": weapon}
 	shots_left = int(w.get("shots", 1)) - 1
+	shot_dmg_mult = 1.0
+	if turn_event == "dmg_up":
+		shot_dmg_mult *= 1.1
+	elif turn_event == "dmg_down":
+		shot_dmg_mult *= 0.9
+	if team_power[current_team]:
+		team_power[current_team] = false
+		shot_dmg_mult *= 1.0 + POWER_BONUS
+	shot_radius_mult = 1.1 if turn_event == "blast_up" else 1.0
 	_launch(last_shot)
 	# Special weapons are one-off picks: the next turn starts back on weapon 1.
 	team_weapon[current_team] = 0
@@ -336,6 +365,7 @@ func _physics_process(delta: float) -> void:
 		_apply_command(command_queue.pop_front())
 	for u in units:
 		u.tick(delta)
+	_tick_crates(delta)
 	match phase:
 		Phase.AIMING:
 			turn_time_left -= delta
@@ -439,7 +469,7 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 	if w.has("strike_width"):
 		_call_sky_strike(pos, weapon_id)
 		return
-	var radius: float = w.radius
+	var radius: float = w.radius * shot_radius_mult
 	var shooter_team: int = current_team
 	if radius > 0.0:
 		terrain.carve(pos, radius)
@@ -460,7 +490,7 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 				_float_text(c + Vector2(0, -30), "+%d" % healed, Color(0.5, 1.0, 0.55))
 			continue
 		var f := 1.0 - d / reach
-		var dmg := int(round(w.damage * f))
+		var dmg := int(round(w.damage * f * shot_dmg_mult))
 		if dmg <= 0:
 			continue
 		u.take_damage(dmg)
@@ -495,10 +525,10 @@ func _tick_strikes(delta: float) -> void:
 
 ## The beam hits a strip `strike_width` wide on each side, along the local "up" axis.
 func _sky_strike(pos: Vector2, axis: Vector2, w: Dictionary) -> void:
-	var width: float = w.strike_width
+	var width: float = w.strike_width * shot_radius_mult
 	var perp := Vector2(-axis.y, axis.x)
 	for k in range(-2, 3):
-		terrain.carve(pos + perp * (k * width * 0.4) - axis * 10.0, w.strike_carve)
+		terrain.carve(pos + perp * (k * width * 0.4) - axis * 10.0, w.strike_carve * shot_radius_mult)
 	for u in units:
 		if not u.alive:
 			continue
@@ -506,10 +536,61 @@ func _sky_strike(pos: Vector2, axis: Vector2, w: Dictionary) -> void:
 		var across := absf(rel.dot(perp))
 		if across >= width or rel.dot(axis) < -90.0:
 			continue
-		var dmg := int(round(w.damage * (1.0 - 0.6 * across / width)))
+		var dmg := int(round(w.damage * (1.0 - 0.6 * across / width) * shot_dmg_mult))
 		u.take_damage(dmg)
 		_float_text(u.body_center() + Vector2(0, -30), "-%d" % dmg, Color(1, 0.9, 0.5))
 	camera.shake = maxf(camera.shake, 22.0)
+
+
+# --- Supply crates --------------------------------------------------------
+
+func _drop_crate() -> void:
+	crates = crates.filter(func(c): return not c.gone)
+	if crates.size() >= MAX_CRATES:
+		return
+	var kinds := ["heal", "ammo", "power"]
+	var kind: String = kinds[rng.randi() % kinds.size()]
+	var pos: Vector2
+	if physics.planets.is_empty():
+		pos = Vector2(rng.randf_range(80.0, world_size.x - 80.0), -60.0)
+	else:
+		var p: Dictionary = physics.planets[rng.randi() % physics.planets.size()]
+		pos = p.center + Vector2.from_angle(rng.randf() * TAU) * (p.radius + 260.0)
+	var crate := Crate.new()
+	crate.setup(pos, kind, physics, terrain)
+	add_child(crate)
+	crates.append(crate)
+	_float_text(pos.clamp(Vector2(60, 60), world_size - Vector2(60, 60)), "กล่องเสบียงกำลังตก!", Color(1, 0.85, 0.5))
+
+
+func _tick_crates(delta: float) -> void:
+	for crate in crates.duplicate():
+		crate.tick(delta)
+		if crate.gone:
+			crates.erase(crate)
+			crate.queue_free()
+			continue
+		for u in units:
+			if u.alive and u.body_center().distance_to(crate.position + Vector2(0, -10)) < Crate.PICKUP_RADIUS + 10.0:
+				_collect(crate, u)
+				break
+
+
+func _collect(crate, unit) -> void:
+	var text := ""
+	match crate.kind:
+		"heal":
+			text = "+%d HP" % unit.heal(CRATE_HEAL)
+		"ammo":
+			var id: String = AMMO_LOOT[rng.randi() % AMMO_LOOT.size()]
+			team_ammo[unit.team][id] = team_ammo[unit.team].get(id, 0) + 1
+			text = "+1 %s" % Weapons.get_def(id).name
+		"power":
+			team_power[unit.team] = true
+			text = "นัดถัดไปแรงขึ้น %d%%" % int(POWER_BONUS * 100)
+	_float_text(unit.body_center() + Vector2(0, -50), text, Color(0.6, 1.0, 0.6))
+	crates.erase(crate)
+	crate.queue_free()
 
 
 func _on_unit_fell(unit) -> void:
@@ -562,16 +643,29 @@ func _start_turn() -> void:
 			team_cursor[current_team] = idx + 1
 			break
 	physics.wind = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, MAX_WIND)
+	# A crate drops each time every living unit has had a turn.
+	turns_since_drop += 1
+	if turns_since_drop > alive_count(0) + alive_count(1):
+		turns_since_drop = 1
+		_drop_crate()
+	turn_event = EVENTS[rng.randi() % EVENTS.size()][0] if rng.randf() < EVENT_CHANCE else ""
 	active_unit.is_active = true
 	if not weapon_available(current_team, current_weapon_id()):
 		team_weapon[current_team] = 0
 	shots_left = 0
 	refire_timer = 0.0
 	camera.follow(active_unit.position, true)
-	turn_time_left = TURN_TIME
+	turn_time_left = TURN_TIME + (-5.0 if turn_event == "time_down" else (5.0 if turn_event == "time_up" else 0.0))
 	command_queue.clear()
 	phase = Phase.AIMING
 	controllers[current_team].begin_turn(active_unit)
 	if autoplay:
 		print("turn %d team %d %s hp=%d/%d" % [turn_number, current_team, active_unit.unit_name, alive_count(0), alive_count(1)])
 	turn_started.emit(current_team, active_unit)
+
+
+func event_text() -> String:
+	for e in EVENTS:
+		if e[0] == turn_event:
+			return e[1]
+	return ""

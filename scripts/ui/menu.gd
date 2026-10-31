@@ -6,6 +6,7 @@ const GameSettings := preload("res://scripts/game/game_settings.gd")
 
 var guide_button: Button
 var bot_button: Button
+var charge_button: Button
 
 
 func _ready() -> void:
@@ -28,7 +29,12 @@ func _ready() -> void:
 		GameSettings.guide = (GameSettings.guide + 1) % GameSettings.GUIDE_OPTIONS.size()
 		_refresh_options())
 	ui.add_child(guide_button)
-	bot_button = _option_button(Vector2(810, 240))
+	charge_button = _option_button(Vector2(670, 240))
+	charge_button.pressed.connect(func():
+		GameSettings.charge_speed = (GameSettings.charge_speed + 1) % GameSettings.CHARGE_OPTIONS.size()
+		_refresh_options())
+	ui.add_child(charge_button)
+	bot_button = _option_button(Vector2(940, 240))
 	bot_button.pressed.connect(func():
 		GameSettings.bot_level = (GameSettings.bot_level + 1) % GameSettings.BOT_LEVELS.size()
 		_refresh_options())
@@ -66,14 +72,15 @@ func _ready() -> void:
 func _option_button(pos: Vector2) -> Button:
 	var b := Button.new()
 	b.position = pos
-	b.size = Vector2(390, 50)
+	b.size = Vector2(260, 50)
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", 18)
+	b.add_theme_font_size_override("font_size", 16)
 	return b
 
 
 func _refresh_options() -> void:
-	guide_button.text = "เส้นนำวิถีกระสุน: %s  ▸" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
+	guide_button.text = "เส้นนำวิถี: %s  ▸" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
+	charge_button.text = "ความเร็วแถบชาร์จ: %s  ▸" % GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0]
 	bot_button.text = "ความยากบอท: %s  ▸" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
 
 

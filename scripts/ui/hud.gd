@@ -12,6 +12,7 @@ var game
 var info: Label
 var teams_label: Label
 var stage_label: Label
+var event_label: Label
 var help: Label
 var banner: Label
 var power_bar: ProgressBar
@@ -55,6 +56,10 @@ func _ready() -> void:
 	stage_label.size = Vector2(320, 20)
 	stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stage_label.modulate = Color(1, 1, 1, 0.7)
+	event_label = _label(Vector2(500, 36), 18)
+	event_label.size = Vector2(600, 26)
+	event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	event_label.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
 	help.text = "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู"
@@ -78,7 +83,7 @@ func _ready() -> void:
 
 	banner = Label.new()
 	banner.position = Vector2(0, 380)
-	banner.size = Vector2(1600, 80)
+	banner.size = Vector2(1600, 130)
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner.add_theme_font_size_override("font_size", 44)
 	banner.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -202,7 +207,10 @@ func _process(delta: float) -> void:
 		for unit in game.units:
 			if unit.team == team:
 				hp += unit.hp
-		lines.append("%s  เหลือ %d คน  %d HP" % [game.TEAM_NAMES[team], game.alive_count(team), hp])
+		var line := "%s  เหลือ %d คน  %d HP" % [game.TEAM_NAMES[team], game.alive_count(team), hp]
+		if game.team_power[team]:
+			line += "   ⚡ นัดถัดไปแรงขึ้น"
+		lines.append(line)
 	teams_label.text = "\n".join(lines)
 	wind_gauge.wind = game.physics.wind
 	wind_gauge.queue_redraw()
@@ -249,6 +257,10 @@ func _card_style(selected: bool, hover := false) -> StyleBoxFlat:
 
 func _on_turn_started(team: int, unit) -> void:
 	banner.text = "%s  -  %s" % [game.TEAM_NAMES[team], unit.unit_name]
+	var ev: String = game.event_text()
+	event_label.text = "เหตุการณ์: " + ev if ev != "" else ""
+	if ev != "":
+		banner.text += "\n" + ev
 	banner.modulate = Color(game.TEAM_COLORS[team], 1.0)
 	_banner_time = 1.6
 

@@ -2,10 +2,10 @@ extends Node
 ## Local human input. Converts keys into match commands; never touches units directly.
 
 const Weapons := preload("res://scripts/sim/weapons.gd")
+const GameSettings := preload("res://scripts/game/game_settings.gd")
 
 const AIM_SPEED := 1.4
 const FINE_AIM_SPEED := 0.3
-const CHARGE_TIME := 2.6
 
 var game
 var team := 0
@@ -53,7 +53,7 @@ func _physics_process(delta: float) -> void:
 
 	if Input.is_physical_key_pressed(KEY_SPACE):
 		charging = true
-		charge = minf(1.0, charge + delta / CHARGE_TIME)
+		charge = minf(1.0, charge + delta / GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][1])
 		game.submit_command({"type": "charge", "team": team, "value": charge})
 	elif charging:
 		charging = false

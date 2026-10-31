@@ -24,9 +24,12 @@ const STAGE_ORDER := ["drift", "titan", "orbit"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
+## [label, seconds to fill the charge bar] for the human player.
+const CHARGE_OPTIONS := [["เร็ว", 1.6], ["ปกติ", 2.6], ["ช้า", 3.6], ["ช้ามาก", 5.0]]
 ## [label, aim error (deg), power error]
 const BOT_LEVELS := [["ง่าย", 3.0, 0.03], ["ปกติ", 0.8, 0.01], ["ยาก", 0.25, 0.004]]
 
 static var stage := "drift"
-static var guide := 2
-static var bot_level := 1
+static var guide := 4  # full line
+static var bot_level := 0  # easy
+static var charge_speed := 1
