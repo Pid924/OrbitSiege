@@ -6,7 +6,7 @@ const FALL_SCALE := 0.35
 const MAX_FALL_SPEED := 110.0
 const PICKUP_RADIUS := 24.0
 
-var kind := "heal"  # heal | ammo | power
+var kind := "ammo"
 var landed := false
 var gone := false
 var velocity := Vector2.ZERO

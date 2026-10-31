@@ -32,8 +32,6 @@ const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a un
 const REFIRE_DELAY := 0.35
 const MAX_WIND := 55.0
 const MAX_CRATES := 4
-const CRATE_HEAL := 35
-const POWER_BONUS := 0.25
 const EVENT_CHANCE := 0.4
 ## Turn events: [id, banner text]. Effects are applied in _start_turn / on_detonation.
 const EVENTS := [
@@ -43,7 +41,8 @@ const EVENTS := [
 	["time_up", "เวลาเทิร์นนี้เพิ่มขึ้น 5 วินาที"],
 	["blast_up", "ระเบิดเทิร์นนี้กว้างขึ้น 10%"],
 ]
-const AMMO_LOOT := ["cluster", "driller", "double", "triple", "snare", "mender", "seeker", "sky"]
+## Crates hold one extra use of any weapon except the unlimited Plasma Shell.
+const AMMO_LOOT := ["cluster", "driller", "double", "triple", "rage", "snare", "mender", "seeker", "sky"]
 const TEAM_COLORS := [Color(0.35, 0.8, 1.0), Color(1.0, 0.45, 0.4)]
 const TEAM_NAMES := ["ผู้เล่น", "บอท"]
 const UNIT_NAMES := [["Nova", "Orion", "Vega"], ["Zr-1", "Zr-2", "Zr-3"]]
@@ -74,7 +73,6 @@ var last_shot := {}
 var crates: Array = []
 var turns_since_drop := 0
 var turn_event := ""  # id from EVENTS, or "" for a normal turn
-var team_power := [false, false]  # next shot gets POWER_BONUS from a crate
 var shot_dmg_mult := 1.0
 var shot_radius_mult := 1.0
 var pending_strikes: Array = []  # {"pos", "axis", "weapon", "time"} for sky beams on their way down
@@ -330,9 +328,6 @@ func _fire(angle: float, power: float) -> void:
 		shot_dmg_mult *= 1.1
 	elif turn_event == "dmg_down":
 		shot_dmg_mult *= 0.9
-	if team_power[current_team]:
-		team_power[current_team] = false
-		shot_dmg_mult *= 1.0 + POWER_BONUS
 	shot_radius_mult = 1.1 if turn_event == "blast_up" else 1.0
 	_launch(last_shot)
 	# Special weapons are one-off picks: the next turn starts back on weapon 1.
@@ -550,8 +545,7 @@ func _drop_crate() -> void:
 	crates = crates.filter(func(c): return not c.gone)
 	if crates.size() >= MAX_CRATES:
 		return
-	var kinds := ["heal", "ammo", "power"]
-	var kind: String = kinds[rng.randi() % kinds.size()]
+	var kind := "ammo"
 	var pos: Vector2
 	if physics.planets.is_empty():
 		pos = Vector2(rng.randf_range(80.0, world_size.x - 80.0), -60.0)
@@ -579,17 +573,9 @@ func _tick_crates(delta: float) -> void:
 
 
 func _collect(crate, unit) -> void:
-	var text := ""
-	match crate.kind:
-		"heal":
-			text = "+%d HP" % unit.heal(CRATE_HEAL)
-		"ammo":
-			var id: String = AMMO_LOOT[rng.randi() % AMMO_LOOT.size()]
-			team_ammo[unit.team][id] = team_ammo[unit.team].get(id, 0) + 1
-			text = "+1 %s" % Weapons.get_def(id).name
-		"power":
-			team_power[unit.team] = true
-			text = "นัดถัดไปแรงขึ้น %d%%" % int(POWER_BONUS * 100)
+	var id: String = AMMO_LOOT[rng.randi() % AMMO_LOOT.size()]
+	team_ammo[unit.team][id] = team_ammo[unit.team].get(id, 0) + 1
+	var text := "+1 นัด เบอร์ %d %s" % [(Weapons.LIST.find(id) + 1) % 10, Weapons.get_def(id).name]
 	_float_text(unit.body_center() + Vector2(0, -50), text, Color(0.6, 1.0, 0.6))
 	crates.erase(crate)
 	crate.queue_free()

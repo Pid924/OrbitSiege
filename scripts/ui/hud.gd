@@ -46,7 +46,7 @@ func setup(game_ref) -> void:
 	game = game_ref
 	game.turn_started.connect(_on_turn_started)
 	game.game_over.connect(_on_game_over)
-	stage_label.text = "ด่าน: %s" % GameSettings.STAGES[game.stage].name
+	stage_label.text = "ด่าน: %s   ·   v%s" % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION]
 
 
 func _ready() -> void:
@@ -208,8 +208,6 @@ func _process(delta: float) -> void:
 			if unit.team == team:
 				hp += unit.hp
 		var line := "%s  เหลือ %d คน  %d HP" % [game.TEAM_NAMES[team], game.alive_count(team), hp]
-		if game.team_power[team]:
-			line += "   ⚡ นัดถัดไปแรงขึ้น"
 		lines.append(line)
 	teams_label.text = "\n".join(lines)
 	wind_gauge.wind = game.physics.wind

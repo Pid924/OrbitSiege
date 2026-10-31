@@ -4,8 +4,6 @@ extends Node
 const Weapons := preload("res://scripts/sim/weapons.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 
-const AIM_SPEED := 0.8
-const FINE_AIM_SPEED := 0.2
 
 var game
 var team := 0
@@ -48,7 +46,9 @@ func _physics_process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN):
 		aim += 1.0
 	if aim != 0.0:
-		var speed := FINE_AIM_SPEED if Input.is_physical_key_pressed(KEY_SHIFT) else AIM_SPEED
+		var speed: float = GameSettings.AIM_OPTIONS[GameSettings.aim_speed][1]
+		if Input.is_physical_key_pressed(KEY_SHIFT):
+			speed *= 0.25
 		game.submit_command({"type": "aim", "team": team, "angle": unit.aim_angle + aim * speed * delta})
 
 	if Input.is_physical_key_pressed(KEY_SPACE):

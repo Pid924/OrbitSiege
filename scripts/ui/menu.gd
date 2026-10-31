@@ -7,6 +7,7 @@ const GameSettings := preload("res://scripts/game/game_settings.gd")
 var guide_button: Button
 var bot_button: Button
 var charge_button: Button
+var aim_button: Button
 
 
 func _ready() -> void:
@@ -29,12 +30,17 @@ func _ready() -> void:
 		GameSettings.guide = (GameSettings.guide + 1) % GameSettings.GUIDE_OPTIONS.size()
 		_refresh_options())
 	ui.add_child(guide_button)
-	charge_button = _option_button(Vector2(670, 240))
+	aim_button = _option_button(Vector2(602, 240))
+	aim_button.pressed.connect(func():
+		GameSettings.aim_speed = (GameSettings.aim_speed + 1) % GameSettings.AIM_OPTIONS.size()
+		_refresh_options())
+	ui.add_child(aim_button)
+	charge_button = _option_button(Vector2(804, 240))
 	charge_button.pressed.connect(func():
 		GameSettings.charge_speed = (GameSettings.charge_speed + 1) % GameSettings.CHARGE_OPTIONS.size()
 		_refresh_options())
 	ui.add_child(charge_button)
-	bot_button = _option_button(Vector2(940, 240))
+	bot_button = _option_button(Vector2(1006, 240))
 	bot_button.pressed.connect(func():
 		GameSettings.bot_level = (GameSettings.bot_level + 1) % GameSettings.BOT_LEVELS.size()
 		_refresh_options())
@@ -67,21 +73,27 @@ func _ready() -> void:
 		if i == 0:
 			b.grab_focus()
 	ui.add_child(_label("คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม" % GameSettings.STAGE_ORDER.size(), Vector2(0, 690), 16))
+	var version := _label("v%s" % GameSettings.VERSION, Vector2(0, 860), 14)
+	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	version.size.x = 1580
+	version.modulate = Color(1, 1, 1, 0.6)
+	ui.add_child(version)
 
 
 func _option_button(pos: Vector2) -> Button:
 	var b := Button.new()
 	b.position = pos
-	b.size = Vector2(260, 50)
+	b.size = Vector2(194, 50)
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", 16)
+	b.add_theme_font_size_override("font_size", 15)
 	return b
 
 
 func _refresh_options() -> void:
-	guide_button.text = "เส้นนำวิถี: %s  ▸" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
-	charge_button.text = "ความเร็วแถบชาร์จ: %s  ▸" % GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0]
-	bot_button.text = "ความยากบอท: %s  ▸" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
+	guide_button.text = "เส้นนำวิถี: %s ▸" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
+	aim_button.text = "หมุนปืน: %s ▸" % GameSettings.AIM_OPTIONS[GameSettings.aim_speed][0]
+	charge_button.text = "แถบชาร์จ: %s ▸" % GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0]
+	bot_button.text = "บอท: %s ▸" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
 
 
 func _label(text: String, pos: Vector2, font_size: int) -> Label:
