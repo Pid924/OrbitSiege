@@ -47,7 +47,7 @@ const DATA := {
 	"snare": {
 		"name": "Stasis Net", "radius": 22.0, "damage": 10.0, "ammo": 2, "root_radius": 140.0,
 		"color": Color(0.45, 0.75, 1.0), "icon": "res://assets/weapons/snare.png",
-		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงจะเดินไม่ได้ในตาถัดไปของตัวเอง",
+		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงจะเดินและหมุนปืนไม่ได้ในตาถัดไปของตัวเอง",
 	},
 	"mender": {
 		"name": "Nano Mender", "radius": 0.0, "damage": 10.0, "ammo": 2, "heal": 25, "heal_radius": 130.0,

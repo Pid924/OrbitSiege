@@ -49,9 +49,15 @@ func begin_turn(u) -> void:
 	refined = false
 	charge = 0.0
 	candidates.clear()
-	for a in range(-150, 151, 5):
-		for p in range(30, 101, 7):
-			candidates.append([deg_to_rad(a), p / 100.0])
+	if unit.rooted_turns > 0:
+		# Netted: the barrel is stuck, so only the power can be chosen.
+		refined = true
+		for p in range(5, 101):
+			candidates.append([unit.aim_angle, p / 100.0])
+	else:
+		for a in range(-150, 151, 5):
+			for p in range(30, 101, 7):
+				candidates.append([deg_to_rad(a), p / 100.0])
 	game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find(_pick_weapon())})
 
 
@@ -130,7 +136,10 @@ func _search_step() -> void:
 		var to_enemy: Vector2 = (enemy.body_center() - unit.position) if enemy else unit.up
 		best_angle = clampf(unit.up.angle_to(to_enemy.normalized() + unit.up), -2.6, 2.6)
 		best_power = 0.6
-	best_angle += deg_to_rad(rng.randfn(0.0, angle_error_deg))
+	if unit.rooted_turns > 0:
+		best_angle = unit.aim_angle
+	else:
+		best_angle += deg_to_rad(rng.randfn(0.0, angle_error_deg))
 	best_power = clampf(best_power + rng.randfn(0.0, power_error), 0.05, 1.0)
 	state = State.AIM
 

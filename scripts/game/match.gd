@@ -300,7 +300,8 @@ func _apply_command(cmd: Dictionary) -> void:
 		"walk":
 			active_unit.walk(int(cmd.dir), 1.0 / 60.0)
 		"aim":
-			active_unit.aim_angle = clampf(cmd.angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT)
+			if active_unit.rooted_turns == 0:  # Stasis Net also locks the barrel
+				active_unit.aim_angle = clampf(cmd.angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT)
 		"charge":
 			active_unit.charge = clampf(cmd.value, 0.0, 1.0)
 		"weapon":
@@ -308,7 +309,8 @@ func _apply_command(cmd: Dictionary) -> void:
 			if weapon_available(current_team, Weapons.LIST[index]):
 				team_weapon[current_team] = index
 		"fire":
-			_fire(clampf(cmd.angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT), clampf(cmd.power, 0.05, 1.0))
+			var angle: float = active_unit.aim_angle if active_unit.rooted_turns > 0 else cmd.angle
+			_fire(clampf(angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT), clampf(cmd.power, 0.05, 1.0))
 
 
 func _fire(angle: float, power: float) -> void:
