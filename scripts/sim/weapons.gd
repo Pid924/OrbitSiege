@@ -8,8 +8,10 @@ extends RefCounted
 ##   root_radius  enemies inside cannot walk on their next turn
 ##   heal, heal_radius  heals teammates in range; no crater
 ##   drill_time   keeps boring through the ground before detonating
+##   homing       after homing_delay, locks on the nearest enemy and steers at turn_rate (rad/s)
+##   strike_width marks a spot; a beam from the sky then hits a strip this wide (each side)
 
-const LIST := ["plasma", "cluster", "driller", "double", "triple", "rage", "snare", "mender"]
+const LIST := ["plasma", "cluster", "driller", "double", "triple", "rage", "snare", "mender", "seeker", "sky"]
 
 const DATA := {
 	"plasma": {
@@ -51,6 +53,18 @@ const DATA := {
 		"name": "Nano Mender", "radius": 0.0, "damage": 10.0, "ammo": 2, "heal": 25, "heal_radius": 130.0,
 		"color": Color(0.4, 1.0, 0.5), "icon": "res://assets/weapons/mender.png",
 		"desc": "ยิงใส่กลุ่มเพื่อนเพื่อฮีล 25 HP ให้ทุกคนในวง ศัตรูที่อยู่ในวงโดนดาเมจเล็กน้อย",
+	},
+	"seeker": {
+		"name": "Hunter Seeker", "radius": 34.0, "damage": 50.0, "ammo": 1,
+		"homing": true, "homing_delay": 0.45, "turn_rate": 3.2,
+		"color": Color(1.0, 0.45, 0.85), "icon": "res://assets/weapons/seeker.png",
+		"desc": "กระสุนติดตาม บินไปครู่หนึ่งแล้วล็อกศัตรูที่ใกล้ที่สุด เลี้ยวตามไปเองไม่สนแรงโน้มถ่วง ใช้ได้ครั้งเดียว",
+	},
+	"sky": {
+		"name": "Sky Lance", "radius": 0.0, "damage": 60.0, "ammo": 1,
+		"strike_width": 110.0, "strike_delay": 0.8, "strike_carve": 46.0,
+		"color": Color(1.0, 0.92, 0.6), "icon": "res://assets/weapons/sky.png",
+		"desc": "ยิงลูกบอกพิกัดไปตกตรงไหน ลำแสงจากฟ้าจะยิงลงมาถล่มพื้นตรงนั้นเป็นวงกว้าง ใช้ได้ครั้งเดียว",
 	},
 	# Spawned by the cluster shell, not selectable.
 	"bomblet": {

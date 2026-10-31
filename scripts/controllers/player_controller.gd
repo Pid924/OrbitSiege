@@ -72,7 +72,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		KEY_E, KEY_TAB:
 			index += 1
 		_:
-			var n: int = event.physical_keycode - KEY_1
+			var n: int = 9 if event.physical_keycode == KEY_0 else event.physical_keycode - KEY_1
 			if n < 0 or n >= Weapons.LIST.size():
 				return
 			index = n

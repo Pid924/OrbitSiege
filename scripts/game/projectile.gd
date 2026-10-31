@@ -11,6 +11,7 @@ var age := 0.0
 var done := false
 var unit_ignore_time := 0.15
 var drill_left := -1.0
+var homing_target = null
 var trail: Array = []
 
 
@@ -36,7 +37,10 @@ func tick(dt: float) -> void:
 			if drill_left <= 0.0 or game.unit_at(position) != null or not game.physics.bounds.has_point(position):
 				_detonate()
 			continue
-		vel += (game.physics.gravity_at(position) + game.physics.wind) * h
+		if w.has("homing") and age > w.homing_delay and _steer(w, h):
+			pass  # homing shells ignore gravity and wind once locked on
+		else:
+			vel += (game.physics.gravity_at(position) + game.physics.wind) * h
 		position += vel * h
 		if not game.physics.bounds.has_point(position):
 			done = true  # lost in space
@@ -54,6 +58,20 @@ func tick(dt: float) -> void:
 	if trail.size() > 40:
 		trail.pop_front()
 	queue_redraw()
+
+
+## Turns toward the locked target. Returns false when there is nothing to chase.
+func _steer(w: Dictionary, h: float) -> bool:
+	if homing_target == null or not homing_target.alive:
+		homing_target = game.nearest_enemy(position, game.current_team)
+	if homing_target == null:
+		return false
+	var speed := maxf(vel.length(), 420.0)
+	var current := vel.angle()
+	var wanted: float = (homing_target.body_center() - position).angle()
+	var turn := clampf(wrapf(wanted - current, -PI, PI), -w.turn_rate * h, w.turn_rate * h)
+	vel = Vector2.from_angle(current + turn) * speed
+	return true
 
 
 func _detonate() -> void:

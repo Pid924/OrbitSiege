@@ -19,6 +19,7 @@ const Hud := preload("res://scripts/ui/hud.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 const AimGuide := preload("res://scripts/game/aim_guide.gd")
 const CameraRig := preload("res://scripts/game/camera_rig.gd")
+const SkyBeam := preload("res://scripts/game/sky_beam.gd")
 
 enum Phase { AIMING, FLYING, SETTLING, GAME_OVER }
 
@@ -56,6 +57,7 @@ var team_ammo := [{}, {}]  # weapon id -> uses left, only for weapons with limit
 var shots_left := 0
 var refire_timer := 0.0
 var last_shot := {}
+var pending_strikes: Array = []  # {"pos", "axis", "weapon", "time"} for sky beams on their way down
 var last_power := {}  # unit_id -> power of that unit's previous shot, for the aim guide
 var active_unit = null
 var turn_time_left := TURN_TIME
@@ -302,6 +304,8 @@ func _fire(angle: float, power: float) -> void:
 	last_shot = {"angle": angle, "power": power, "weapon": weapon}
 	shots_left = int(w.get("shots", 1)) - 1
 	_launch(last_shot)
+	# Special weapons are one-off picks: the next turn starts back on weapon 1.
+	team_weapon[current_team] = 0
 	phase = Phase.FLYING
 	aim_guide.clear()
 	controllers[current_team].end_turn()
@@ -344,7 +348,8 @@ func _physics_process(delta: float) -> void:
 				if p.done:
 					projectiles.erase(p)
 					p.queue_free()
-			if projectiles.is_empty():
+			_tick_strikes(delta)
+			if projectiles.is_empty() and pending_strikes.is_empty():
 				if shots_left > 0 and active_unit.alive:
 					refire_timer += delta
 					if refire_timer >= REFIRE_DELAY:
@@ -362,6 +367,8 @@ func _physics_process(delta: float) -> void:
 func _process(_delta: float) -> void:
 	if phase == Phase.FLYING and not projectiles.is_empty():
 		camera.follow(projectiles[0].position)
+	elif phase == Phase.FLYING and not pending_strikes.is_empty():
+		camera.follow(pending_strikes[0].pos)
 	elif active_unit:
 		camera.follow(active_unit.position)
 	_update_aim_guide()
@@ -407,6 +414,18 @@ func unit_at(pos: Vector2):
 	return null
 
 
+func nearest_enemy(pos: Vector2, team: int):
+	var best = null
+	var best_d := INF
+	for u in units:
+		if u.alive and u.team != team:
+			var d: float = u.body_center().distance_squared_to(pos)
+			if d < best_d:
+				best_d = d
+				best = u
+	return best
+
+
 func unit_hit_points() -> PackedVector2Array:
 	var pts := PackedVector2Array()
 	for u in units:
@@ -417,6 +436,9 @@ func unit_hit_points() -> PackedVector2Array:
 
 func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 	var w := Weapons.get_def(weapon_id)
+	if w.has("strike_width"):
+		_call_sky_strike(pos, weapon_id)
+		return
 	var radius: float = w.radius
 	var shooter_team: int = current_team
 	if radius > 0.0:
@@ -452,6 +474,42 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 	fx.setup(pos, maxf(radius, w.get("root_radius", w.get("heal_radius", 0.0)) * 0.7), w.color)
 	add_child(fx)
 	camera.shake = maxf(camera.shake, radius * 0.3)
+
+
+func _call_sky_strike(pos: Vector2, weapon_id: String) -> void:
+	var w := Weapons.get_def(weapon_id)
+	var axis := physics.up_at(pos)
+	pending_strikes.append({"pos": pos, "axis": axis, "weapon": weapon_id, "time": float(w.strike_delay)})
+	var beam := SkyBeam.new()
+	beam.setup(pos, axis, w.strike_width, w.strike_delay, w.color)
+	add_child(beam)
+
+
+func _tick_strikes(delta: float) -> void:
+	for s in pending_strikes.duplicate():
+		s.time -= delta
+		if s.time <= 0.0:
+			pending_strikes.erase(s)
+			_sky_strike(s.pos, s.axis, Weapons.get_def(s.weapon))
+
+
+## The beam hits a strip `strike_width` wide on each side, along the local "up" axis.
+func _sky_strike(pos: Vector2, axis: Vector2, w: Dictionary) -> void:
+	var width: float = w.strike_width
+	var perp := Vector2(-axis.y, axis.x)
+	for k in range(-2, 3):
+		terrain.carve(pos + perp * (k * width * 0.4) - axis * 10.0, w.strike_carve)
+	for u in units:
+		if not u.alive:
+			continue
+		var rel: Vector2 = u.body_center() - pos
+		var across := absf(rel.dot(perp))
+		if across >= width or rel.dot(axis) < -90.0:
+			continue
+		var dmg := int(round(w.damage * (1.0 - 0.6 * across / width)))
+		u.take_damage(dmg)
+		_float_text(u.body_center() + Vector2(0, -30), "-%d" % dmg, Color(1, 0.9, 0.5))
+	camera.shake = maxf(camera.shake, 22.0)
 
 
 func _on_unit_fell(unit) -> void:

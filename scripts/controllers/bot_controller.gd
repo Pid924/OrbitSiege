@@ -60,7 +60,7 @@ func begin_turn(u) -> void:
 func _pick_weapon() -> String:
 	if game.weapon_available(team, "rage") and rng.randf() < 0.8:
 		return "rage"
-	var weights := {"plasma": 5.0, "cluster": 1.0, "driller": 1.0, "double": 1.0, "triple": 1.0, "snare": 0.7}
+	var weights := {"plasma": 5.0, "cluster": 1.0, "driller": 1.0, "double": 1.0, "triple": 1.0, "snare": 0.7, "seeker": 0.6, "sky": 0.6}
 	var total := 0.0
 	for id in weights:
 		if game.weapon_available(team, id):

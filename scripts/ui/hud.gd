@@ -5,8 +5,8 @@ extends CanvasLayer
 const Weapons := preload("res://scripts/sim/weapons.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 
-const CARD_SIZE := Vector2(66, 66)
-const PANEL_WIDTH := 1010.0
+const CARD_SIZE := Vector2(60, 60)
+const PANEL_WIDTH := 1160.0
 
 var game
 var info: Label
@@ -57,7 +57,7 @@ func _ready() -> void:
 	stage_label.modulate = Color(1, 1, 1, 0.7)
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
-	help.text = "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-8 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู"
+	help.text = "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู"
 
 	var menu_button := Button.new()
 	menu_button.text = "กลับเมนู"
@@ -101,7 +101,7 @@ func _build_weapon_panel() -> void:
 	for i in Weapons.LIST.size():
 		var w := Weapons.get_def(Weapons.LIST[i])
 		var card := Button.new()
-		card.position = Vector2(8 + i * (CARD_SIZE.x + 6), 8)
+		card.position = Vector2(8 + i * (CARD_SIZE.x + 5), 10)
 		card.size = CARD_SIZE
 		card.icon = load(w.icon)
 		card.expand_icon = true
@@ -111,7 +111,7 @@ func _build_weapon_panel() -> void:
 		card.pressed.connect(_on_card_pressed.bind(i))
 		panel.add_child(card)
 		var key := Label.new()
-		key.text = str(i + 1)
+		key.text = str((i + 1) % 10)
 		key.position = Vector2(6, 2)
 		key.add_theme_font_size_override("font_size", 12)
 		key.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -128,7 +128,7 @@ func _build_weapon_panel() -> void:
 		ammo_labels.append(ammo)
 		weapon_cards.append(card)
 
-	var text_x := 8 + Weapons.LIST.size() * (CARD_SIZE.x + 6) + 6
+	var text_x := 8 + Weapons.LIST.size() * (CARD_SIZE.x + 5) + 6
 	weapon_name = Label.new()
 	weapon_name.position = Vector2(text_x, 2)
 	weapon_name.add_theme_font_size_override("font_size", 20)
