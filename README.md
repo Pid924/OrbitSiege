@@ -3,6 +3,8 @@
 เกมยิงปืนใหญ่ผลัดตาธีมอวกาศ ทำด้วย **Godot 4.2** (GDScript ล้วน ไม่มี asset ภายนอก)
 ทีมนักบินอวกาศ 3 คนของคุณ สู้กับบอท 3 คน บนดาวเคราะห์น้อยที่ระเบิดพังได้
 
+**เล่นบนเว็บ:** https://pid924.github.io/OrbitSiege/ (ต้องเปิด GitHub Pages จากโฟลเดอร์ `/docs` ก่อน)
+
 ## วิธีเปิด
 1. เปิด Godot 4.2 > Import > เลือกไฟล์ `project.godot` ในโฟลเดอร์นี้
 2. กด F5 (Run Project)
@@ -55,6 +57,11 @@ scripts/ui/hud.gd                หน้าจอข้อมูล
 2. เพิ่ม `NetworkController` ฝั่ง client ที่ส่งคำสั่ง Dictionary เดิมผ่าน RPC ไปหา host แทนการเรียก `submit_command()` ตรง ๆ
 3. host ตรวจว่าเป็นตาของผู้ส่งจริง (`is_turn_of`) แล้ว apply และกระจายผล (ตำแหน่งตัวละคร, หลุมที่เจาะ, HP) กลับไป
 4. `match_seed` ใช้สร้างแผนที่ ส่ง seed เดียวกันให้ทุกเครื่องก็ได้แผนที่เดียวกัน
+
+## อัปเดตเวอร์ชันเว็บ
+เวอร์ชันเว็บอยู่ในโฟลเดอร์ `docs/` export จาก preset "Web" (Project > Export > Web > Export Project ไปที่ `docs/index.html`)
+Godot 4.2 บนเว็บต้องใช้ SharedArrayBuffer แต่ GitHub Pages ใส่ header ที่จำเป็นให้ไม่ได้ เลยใช้ `coi-serviceworker.min.js` (MIT) มาช่วยใส่ header ให้แทน
+ไฟล์นี้ export ไม่ได้สร้างให้ ห้ามลบออกจาก `docs/`
 
 ## ทดสอบแล้ว
 รันด้วย Godot 4.2.2 แบบ headless ให้บอทสู้บอทหลายรอบ เกมจบได้ปกติ ไม่มี error
