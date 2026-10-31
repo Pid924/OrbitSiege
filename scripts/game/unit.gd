@@ -1,0 +1,169 @@
+extends Node2D
+## An astronaut gunner. `position` is the feet; "up" always points away from the planet it stands on.
+
+const MAX_HP := 100
+const WALK_SPEED := 45.0
+const CLIMB := 6
+const AIM_LIMIT := 2.8
+
+var unit_id := 0
+var team := 0
+var unit_name := ""
+var color := Color.WHITE
+var hp := MAX_HP
+var alive := true
+var aim_angle := 0.6  # radians, relative to local up; positive turns clockwise
+var charge := 0.0  # 0..1, only for drawing the power gauge
+var velocity := Vector2.ZERO
+var grounded := false
+var up := Vector2.UP
+var is_active := false
+
+var physics
+var terrain
+var _bob := 0.0
+
+
+func setup(id: int, team_id: int, display_name: String, team_color: Color, physics_ref, terrain_ref) -> void:
+	unit_id = id
+	team = team_id
+	unit_name = display_name
+	color = team_color
+	physics = physics_ref
+	terrain = terrain_ref
+	up = physics.up_at(position)
+	aim_angle = 0.6 if team == 0 else -0.6
+
+
+func body_center() -> Vector2:
+	return position + up * 9.0
+
+
+func muzzle() -> Vector2:
+	return position + up * 10.0 + aim_dir() * 14.0
+
+
+func aim_dir() -> Vector2:
+	return up.rotated(aim_angle)
+
+
+## Physics step, driven by the match so all simulation happens in one ordered place.
+func tick(dt: float) -> void:
+	if not alive:
+		return
+	up = physics.up_at(position)
+	if grounded and not terrain.is_solid(position - up * 2.0):
+		grounded = false
+	if grounded:
+		return
+	velocity += physics.gravity_at(position) * dt
+	var n := maxi(1, int(ceil(velocity.length() * dt / 3.0)))
+	var step := velocity * dt / n
+	for i in n:
+		var next := position + step
+		if terrain.is_solid(next):
+			_land()
+			break
+		position = next
+	if not physics.bounds.has_point(position):
+		die()
+
+
+func _land() -> void:
+	grounded = true
+	velocity = Vector2.ZERO
+	up = physics.up_at(position)
+	for i in 12:
+		if not terrain.is_solid(position):
+			break
+		position += up
+
+
+func walk(dir: int, dt: float) -> void:
+	if not grounded or not alive or dir == 0:
+		return
+	var tangent := Vector2(-up.y, up.x)
+	var next := position + tangent * dir * WALK_SPEED * dt
+	var climbed := 0
+	while terrain.is_solid(next) and climbed < CLIMB:
+		next += up
+		climbed += 1
+	if terrain.is_solid(next):
+		return  # wall too steep
+	position = next
+	for i in CLIMB:
+		if terrain.is_solid(position - up):
+			break
+		position -= up
+	if not terrain.is_solid(position - up * 2.0):
+		grounded = false
+
+
+func knock(impulse: Vector2) -> void:
+	if not alive:
+		return
+	velocity += impulse
+	grounded = false
+	position += up * 2.0
+
+
+func take_damage(amount: int) -> void:
+	if not alive or amount <= 0:
+		return
+	hp = maxi(0, hp - amount)
+	if hp == 0:
+		die()
+
+
+func die() -> void:
+	if not alive:
+		return
+	alive = false
+	hp = 0
+	is_active = false
+	queue_redraw()
+
+
+func _process(delta: float) -> void:
+	_bob += delta
+	queue_redraw()
+
+
+func _draw() -> void:
+	var rot := up.angle() + PI / 2.0
+	if not alive:
+		draw_set_transform(Vector2.ZERO, rot)
+		draw_rect(Rect2(-4, -14, 8, 14), Color(0.45, 0.45, 0.5))
+		draw_rect(Rect2(-7, -11, 14, 3), Color(0.45, 0.45, 0.5))
+		return
+	draw_set_transform(Vector2.ZERO, rot)
+	var local_aim := Vector2.UP.rotated(aim_angle)
+	if is_active:
+		# Aim guide grows with the charge so the player can read the power.
+		var guide_len := 30.0 + charge * 70.0
+		for k in 6:
+			var a := Vector2(0, -10) + local_aim * (16.0 + guide_len * k / 6.0)
+			draw_circle(a, 2.0, Color(1, 1, 1, 0.8 - k * 0.1))
+	# legs
+	draw_rect(Rect2(-6, -5, 4, 5), color.darkened(0.4))
+	draw_rect(Rect2(2, -5, 4, 5), color.darkened(0.4))
+	# barrel
+	draw_line(Vector2(0, -10), Vector2(0, -10) + local_aim * 16.0, Color(0.85, 0.85, 0.9), 4.0)
+	# suit + helmet
+	draw_circle(Vector2(0, -10), 8.0, color)
+	draw_circle(Vector2(0, -11), 5.0, Color(0.1, 0.15, 0.25))
+	draw_circle(Vector2(1.5, -12.5), 1.6, Color(0.7, 0.95, 1.0))
+	draw_line(Vector2(0, -18), Vector2(0, -23), color.lightened(0.3), 1.5)
+	draw_circle(Vector2(0, -24), 1.8, color.lightened(0.5))
+	draw_set_transform(Vector2.ZERO, 0.0)
+	# Screen-aligned label and HP bar above the head.
+	var font := ThemeDB.fallback_font
+	var head := up * 36.0
+	var bar := Rect2(head + Vector2(-16, 0), Vector2(32, 4))
+	draw_rect(bar, Color(0, 0, 0, 0.6))
+	draw_rect(Rect2(bar.position, Vector2(32.0 * hp / MAX_HP, 4)), color)
+	draw_string(font, head + Vector2(-30, -4), "%s %d" % [unit_name, hp], HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(1, 1, 1, 0.9))
+	if is_active:
+		var y := -14.0 + sin(_bob * 5.0) * 3.0
+		var tip := head + Vector2(0, y)
+		draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-6, -9), tip + Vector2(6, -9)]), Color(1, 1, 0.4))
