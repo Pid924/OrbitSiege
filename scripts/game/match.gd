@@ -342,8 +342,6 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 		var dmg := int(round(w.damage * f))
 		u.take_damage(dmg)
 		_float_text(c + Vector2(0, -30), "-%d" % dmg, Color(1, 0.85, 0.4))
-		var dir: Vector2 = (c - pos).normalized() if d > 0.5 else u.up
-		u.knock((dir + u.up * 0.5).normalized() * w.knockback * f)
 	if w.has("bomblets"):
 		var back: Vector2 = -vel.normalized() if vel.length_squared() > 1.0 else physics.up_at(pos)
 		for i in int(w.bomblets):

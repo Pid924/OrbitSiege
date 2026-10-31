@@ -102,14 +102,6 @@ func walk(dir: int, dt: float) -> void:
 		grounded = false
 
 
-func knock(impulse: Vector2) -> void:
-	if not alive:
-		return
-	velocity += impulse
-	grounded = false
-	position += up * 2.0
-
-
 func take_damage(amount: int) -> void:
 	if not alive or amount <= 0:
 		return
