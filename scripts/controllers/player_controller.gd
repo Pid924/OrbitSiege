@@ -5,7 +5,7 @@ const Weapons := preload("res://scripts/sim/weapons.gd")
 
 const AIM_SPEED := 1.4
 const FINE_AIM_SPEED := 0.3
-const CHARGE_TIME := 1.6
+const CHARGE_TIME := 2.6
 
 var game
 var team := 0

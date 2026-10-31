@@ -20,7 +20,7 @@ const DATA := {
 		"desc": "กระสุนพลาสมามาตรฐาน ระเบิดวงกว้าง ดาเมจสูง ใช้ได้ไม่จำกัด",
 	},
 	"cluster": {
-		"name": "Star Cluster", "radius": 24.0, "damage": 20.0, "ammo": 3,
+		"name": "Star Cluster", "radius": 24.0, "damage": 20.0, "ammo": 5,
 		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "icon": "res://assets/weapons/cluster.png",
 		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูกกระจายรอบจุดตก เหมาะกับศัตรูที่ยืนใกล้กัน",
 	},

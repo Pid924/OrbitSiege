@@ -9,7 +9,7 @@ const GameSettings := preload("res://scripts/game/game_settings.gd")
 const THINK_DELAY := 0.7
 const FRAME_BUDGET_USEC := 6000
 const AIM_SPEED := 1.6
-const CHARGE_TIME := 1.6
+const CHARGE_TIME := 2.6
 const FRIENDLY_RADIUS := 60.0
 
 ## Shot error (standard deviation). Lower = harder bot.
