@@ -11,6 +11,7 @@ const MAX_FLIGHT_TIME := 9.0
 const UNIT_HIT_RADIUS := 12.0
 
 var planets: Array = []  # {"center": Vector2, "radius": float, "mass": float}
+var uniform_gravity := Vector2.ZERO  # constant pull, used by flat "fall = death" stages
 var wind := Vector2.ZERO
 var bounds := Rect2(-250, -250, 2100, 1400)
 
@@ -20,7 +21,7 @@ func add_planet(center: Vector2, radius: float) -> void:
 
 
 func gravity_at(pos: Vector2) -> Vector2:
-	var g := Vector2.ZERO
+	var g := uniform_gravity
 	for p in planets:
 		var d: Vector2 = p.center - pos
 		var dist_sq := d.length_squared() + SOFTENING * SOFTENING
@@ -43,7 +44,7 @@ func dominant_planet(pos: Vector2) -> Dictionary:
 func up_at(pos: Vector2) -> Vector2:
 	var p := dominant_planet(pos)
 	if p.is_empty():
-		return Vector2.UP
+		return -uniform_gravity.normalized() if uniform_gravity != Vector2.ZERO else Vector2.UP
 	var v: Vector2 = pos - p.center
 	return v.normalized() if v.length_squared() > 0.01 else Vector2.UP
 

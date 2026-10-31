@@ -21,4 +21,4 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	draw_string(ThemeDB.fallback_font, Vector2(-40, 0), text, HORIZONTAL_ALIGNMENT_CENTER, 80, 18, Color(color, 1.0 - life / 1.2))
+	draw_string(ThemeDB.fallback_font, Vector2(-120, 0), text, HORIZONTAL_ALIGNMENT_CENTER, 240, 18, Color(color, 1.0 - life / 1.2))

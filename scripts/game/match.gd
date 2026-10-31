@@ -16,20 +16,24 @@ const FloatingText := preload("res://scripts/game/floating_text.gd")
 const PlayerController := preload("res://scripts/controllers/player_controller.gd")
 const BotController := preload("res://scripts/controllers/bot_controller.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
+const GameSettings := preload("res://scripts/game/game_settings.gd")
 
 enum Phase { AIMING, FLYING, SETTLING, GAME_OVER }
 
 const TURN_TIME := 30.0
 const UNITS_PER_TEAM := 3
 const PLANET_COUNT := 5
+const DRIFT_GRAVITY := 260.0
+const ABYSS_Y := 825.0  # drift stage: below this line a unit is lost in the gas giant
 const MAX_WIND := 55.0
 const TEAM_COLORS := [Color(0.35, 0.8, 1.0), Color(1.0, 0.45, 0.4)]
-const TEAM_NAMES := ["Player", "Bot"]
+const TEAM_NAMES := ["ผู้เล่น", "บอท"]
 const UNIT_NAMES := [["Nova", "Orion", "Vega"], ["Zr-1", "Zr-2", "Zr-3"]]
 
 signal turn_started(team: int, unit)
 signal game_over(winner: int)
 
+var stage := "drift"
 var match_seed := 0
 var rng := RandomNumberGenerator.new()
 var physics := SpacePhysics.new()
@@ -55,6 +59,11 @@ var shake := 0.0
 
 
 func _ready() -> void:
+	ThemeDB.fallback_font = preload("res://assets/fonts/ui_font.tres")
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--stage="):
+			GameSettings.stage = arg.trim_prefix("--stage=")
+	stage = GameSettings.stage if GameSettings.STAGES.has(GameSettings.stage) else "drift"
 	match_seed = int(Time.get_unix_time_from_system()) ^ randi()
 	rng.seed = match_seed
 	_build_world()
@@ -66,11 +75,17 @@ func _build_world() -> void:
 	add_child(stars)
 	stars.generate(rng)
 
-	_generate_planets()
 	terrain = Terrain.new()
 	add_child(terrain)
-	terrain.generate(physics, rng)
-	_spawn_units()
+	if stage == "drift":
+		stars.abyss = true
+		physics.uniform_gravity = Vector2(0, DRIFT_GRAVITY)
+		physics.bounds = Rect2(-300, -2500, Terrain.WIDTH + 600, 2500 + ABYSS_Y)
+		_spawn_units_on_islands(terrain.generate_islands(rng))
+	else:
+		_generate_planets()
+		terrain.generate(physics, rng)
+		_spawn_units()
 
 	# `-- --autoplay` lets two bots play each other (demo / smoke test).
 	autoplay = "--autoplay" in OS.get_cmdline_user_args()
@@ -115,11 +130,50 @@ func _spawn_units() -> void:
 			var planet: Dictionary = homes[team][i % homes[team].size()]
 			var unit := Unit.new()
 			unit.position = _find_spawn_point(planet)
+			unit.fell.connect(_on_unit_fell)
 			add_child(unit)
 			unit.setup(id, team, UNIT_NAMES[team][i], TEAM_COLORS[team], physics, terrain)
 			unit.grounded = true
 			units.append(unit)
 			id += 1
+
+
+func _spawn_units_on_islands(islands: Array) -> void:
+	# Team 0 starts on the left islands, team 1 on the right ones.
+	var half := maxi(1, islands.size() / 2)
+	var homes := [islands.slice(0, half), islands.slice(islands.size() - half)]
+	var id := 0
+	for team in 2:
+		for i in UNITS_PER_TEAM:
+			var unit := Unit.new()
+			unit.position = _find_island_spawn(homes[team])
+			unit.fell.connect(_on_unit_fell)
+			add_child(unit)
+			unit.setup(id, team, UNIT_NAMES[team][i], TEAM_COLORS[team], physics, terrain)
+			unit.grounded = true
+			units.append(unit)
+			id += 1
+
+
+func _find_island_spawn(islands: Array) -> Vector2:
+	var best := Vector2(Terrain.WIDTH / 2.0, 100)
+	for attempt in 60:
+		var island: Dictionary = islands[rng.randi() % islands.size()]
+		var x := rng.randf_range(lerpf(island.x0, island.x1, 0.12), lerpf(island.x0, island.x1, 0.88))
+		var pos := Vector2(x, 0)
+		while pos.y < ABYSS_Y and not terrain.is_solid(pos + Vector2.DOWN):
+			pos.y += 1.0
+		if pos.y >= ABYSS_Y:
+			continue
+		best = pos
+		var clear := true
+		for u in units:
+			if u.position.distance_to(pos) < 70.0:
+				clear = false
+				break
+		if clear:
+			return pos
+	return best
 
 
 func _find_spawn_point(planet: Dictionary) -> Vector2:
@@ -236,9 +290,12 @@ func _process(delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_R:
-		if phase == Phase.GAME_OVER or event.ctrl_pressed:
-			get_tree().reload_current_scene()
+	if not (event is InputEventKey and event.pressed and not event.echo):
+		return
+	if event.physical_keycode == KEY_R and (phase == Phase.GAME_OVER or event.ctrl_pressed):
+		get_tree().reload_current_scene()
+	elif event.physical_keycode == KEY_ESCAPE:
+		get_tree().change_scene_to_file("res://scenes/menu.tscn")
 
 
 func _begin_settling() -> void:
@@ -296,6 +353,11 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 	fx.setup(pos, radius, w.color)
 	add_child(fx)
 	shake = maxf(shake, radius * 0.3)
+
+
+func _on_unit_fell(unit) -> void:
+	var pos: Vector2 = unit.position.clamp(Vector2(40, 40), Vector2(Terrain.WIDTH - 40, ABYSS_Y - 30))
+	_float_text(pos, "%s หายไปในอวกาศ!" % unit.unit_name, Color(1, 0.5, 0.5))
 
 
 func _float_text(pos: Vector2, text: String, color: Color) -> void:

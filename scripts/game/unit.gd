@@ -1,6 +1,8 @@
 extends Node2D
 ## An astronaut gunner. `position` is the feet; "up" always points away from the planet it stands on.
 
+signal fell(unit)
+
 const MAX_HP := 100
 const WALK_SPEED := 45.0
 const CLIMB := 6
@@ -66,6 +68,7 @@ func tick(dt: float) -> void:
 			break
 		position = next
 	if not physics.bounds.has_point(position):
+		fell.emit(self)
 		die()
 
 

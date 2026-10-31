@@ -20,23 +20,113 @@ var mask := PackedByteArray()
 var _dirty := false
 
 
+## Round planetoids, one per physics planet (the "orbit" stage).
 func generate(physics, rng: RandomNumberGenerator) -> void:
-	image = Image.create(WIDTH, HEIGHT, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0, 0, 0, 0))
-	mask.resize(WIDTH * HEIGHT)
-	mask.fill(0)
+	_clear()
 	var shape_noise := FastNoiseLite.new()
 	shape_noise.seed = rng.randi()
 	shape_noise.frequency = 0.9
-	var speck := FastNoiseLite.new()
-	speck.seed = rng.randi()
-	speck.frequency = 0.06
+	var speck := _speck_noise(rng)
 	var first_palette := rng.randi() % PALETTES.size()
 	for i in physics.planets.size():
 		var palette: Array = PALETTES[(first_palette + i) % PALETTES.size()]
 		_paint_planet(physics.planets[i], shape_noise, speck, palette, float(i) * 17.0)
+	_finish()
+
+
+## Floating rock islands with gaps between them (the "drift" stage).
+## Returns [{"x0": float, "x1": float}, ...] from left to right, for spawning units.
+func generate_islands(rng: RandomNumberGenerator) -> Array:
+	_clear()
+	var surface := FastNoiseLite.new()
+	surface.seed = rng.randi()
+	surface.frequency = 0.006
+	var jag := FastNoiseLite.new()
+	jag.seed = rng.randi()
+	jag.frequency = 0.04
+	var speck := _speck_noise(rng)
+	var islands := []
+	var palette_index := rng.randi() % PALETTES.size()
+	var x := rng.randf_range(40.0, 90.0)
+	while x < WIDTH - 200.0:
+		var w := minf(rng.randf_range(230.0, 380.0), WIDTH - 40.0 - x)
+		var island := {
+			"x0": x, "x1": x + w,
+			"base": rng.randf_range(330.0, 500.0),
+			"depth": rng.randf_range(110.0, 190.0),
+		}
+		_paint_island(island, surface, jag, speck, PALETTES[palette_index % PALETTES.size()])
+		islands.append(island)
+		x += w + rng.randf_range(70.0, 140.0)
+	# Small rocks hanging over the gaps (never over an island, so nobody spawns on one).
+	for i in range(islands.size() - 1):
+		if rng.randf() < 0.3:
+			continue
+		var gap_x: float = (islands[i].x1 + islands[i + 1].x0) / 2.0
+		var c := Vector2(gap_x, rng.randf_range(170.0, 330.0))
+		var r := rng.randf_range(22.0, 34.0)
+		_paint_rock(c, r, speck, PALETTES[(palette_index + 2) % PALETTES.size()])
+	_finish()
+	return islands
+
+
+func _clear() -> void:
+	image = Image.create(WIDTH, HEIGHT, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	mask.resize(WIDTH * HEIGHT)
+	mask.fill(0)
+
+
+func _finish() -> void:
 	texture = ImageTexture.create_from_image(image)
 	queue_redraw()
+
+
+func _speck_noise(rng: RandomNumberGenerator) -> FastNoiseLite:
+	var speck := FastNoiseLite.new()
+	speck.seed = rng.randi()
+	speck.frequency = 0.06
+	return speck
+
+
+func _paint_island(island: Dictionary, surface: FastNoiseLite, jag: FastNoiseLite, speck: FastNoiseLite, palette: Array) -> void:
+	var x0: float = island.x0
+	var x1: float = island.x1
+	var half := (x1 - x0) / 2.0
+	var cx := x0 + half
+	for x in range(int(x0), int(x1) + 1):
+		var t := (x - cx) / half
+		var edge := clampf(1.0 - t * t, 0.0, 1.0)
+		# Flat-ish top that droops at the ends, tapering rocky underside.
+		var top: float = island.base + 70.0 * surface.get_noise_1d(x) + 40.0 * (1.0 - sqrt(edge))
+		var bottom: float = top + 20.0 + island.depth * sqrt(edge) + 18.0 * jag.get_noise_1d(x)
+		for y in range(maxi(0, int(top)), mini(HEIGHT - 1, int(bottom)) + 1):
+			_paint_pixel(x, y, float(y) - top, bottom - top, speck, palette)
+
+
+func _paint_rock(center: Vector2, radius: float, speck: FastNoiseLite, palette: Array) -> void:
+	for y in range(int(center.y - radius), int(center.y + radius) + 1):
+		for x in range(int(center.x - radius * 1.3), int(center.x + radius * 1.3) + 1):
+			var d := Vector2((x - center.x) / 1.3, y - center.y).length()
+			var edge := radius * (1.0 + 0.15 * speck.get_noise_2d(x * 3.0, y * 3.0))
+			if d <= edge:
+				_paint_pixel(x, y, edge - d, edge, speck, palette)
+
+
+func _paint_pixel(x: int, y: int, depth: float, thickness: float, speck: FastNoiseLite, palette: Array) -> void:
+	if x < 0 or y < 0 or x >= WIDTH or y >= HEIGHT:
+		return
+	var n := speck.get_noise_2d(x, y)
+	var c: Color
+	if depth < 5.0:
+		c = palette[0]
+	else:
+		c = (palette[1] as Color).lerp(palette[2], clampf(depth / maxf(thickness, 1.0), 0.0, 1.0))
+		if n > 0.35:
+			c = c.darkened(0.25)
+	c = c.lightened(n * 0.08)
+	image.set_pixel(x, y, c)
+	mask[y * WIDTH + x] = 1
 
 
 func _paint_planet(p: Dictionary, shape_noise: FastNoiseLite, speck: FastNoiseLite, palette: Array, offset: float) -> void:
