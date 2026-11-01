@@ -69,19 +69,19 @@ func _ready() -> void:
 		var id: String = GameSettings.STAGE_ORDER[i]
 		var stage: Dictionary = GameSettings.STAGES[id]
 		var b := Button.new()
-		b.position = Vector2(400, 320 + i * 118)
-		b.size = Vector2(800, 104)
+		b.position = Vector2(400, 314 + i * 96)
+		b.size = Vector2(800, 88)
 		b.pressed.connect(_start.bind(id))
 		var heading := Label.new()
 		heading.text = "ด่าน %d: %s" % [i + 1, stage.name]
-		heading.position = Vector2(24, 8)
+		heading.position = Vector2(24, 4)
 		heading.add_theme_font_size_override("font_size", 26)
 		heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(heading)
 		var desc := Label.new()
 		desc.text = stage.desc
-		desc.position = Vector2(24, 50)
-		desc.size = Vector2(752, 48)
+		desc.position = Vector2(24, 44)
+		desc.size = Vector2(752, 40)
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc.add_theme_font_size_override("font_size", 16)
 		desc.modulate = Color(1, 1, 1, 0.8)
@@ -90,7 +90,7 @@ func _ready() -> void:
 		ui.add_child(b)
 		if i == 0:
 			b.grab_focus()
-	ui.add_child(_label("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม" % GameSettings.STAGE_ORDER.size(), Vector2(0, 690), 16))
+	ui.add_child(_label("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม" % GameSettings.STAGE_ORDER.size(), Vector2(0, 708), 16))
 	var version := _label("v%s" % GameSettings.VERSION, Vector2(0, 860), 14)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	version.size.x = 1580
@@ -112,7 +112,7 @@ func _refresh_options() -> void:
 	aim_button.text = "หมุนปืน: %s ›" % GameSettings.AIM_OPTIONS[GameSettings.aim_speed][0]
 	charge_button.text = "แถบชาร์จ: %s ›" % GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0]
 	bot_button.text = "บอท: %s ›" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
-	touch_button.text = "ปุ่มบนจอ: %s ›" % GameSettings.TOUCH_OPTIONS[GameSettings.touch_ui][0]
+	touch_button.text = "ปุ่มบนจอ: %s ›" % GameSettings.TOUCH_OPTIONS[GameSettings.touch_ui]
 
 
 func _label(text: String, pos: Vector2, font_size: int) -> Label:

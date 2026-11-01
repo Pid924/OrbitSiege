@@ -12,6 +12,8 @@ extends RefCounted
 ##   drill_time   keeps boring through the ground before detonating
 ##   homing       after homing_delay, locks on the nearest enemy and steers at turn_rate (rad/s)
 ##   strike_width marks a spot; a beam from the sky then hits a strip this wide (each side)
+##   miss_carve   crater radius when it bursts in the ground without touching a unit
+##   direct_bomblets  bomblet count when it bursts right on a unit
 
 const LIST := ["plasma", "cluster", "driller", "double", "triple", "rage", "snare", "mender", "seeker", "sky"]
 
@@ -23,13 +25,13 @@ const DATA := {
 	},
 	"cluster": {
 		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 5,
-		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "icon": "res://assets/weapons/cluster.png",
-		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูกกระจายรอบจุดตก กินพื้นหายไปเยอะ เหมาะกับศัตรูที่ยืนใกล้กัน",
+		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "direct_bomblets": 8, "icon": "res://assets/weapons/cluster.png",
+		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูก ถ้าโดนตัวศัตรูจัง ๆ แตก 8 ลูก กินพื้นหายไปเยอะ ทำให้ศัตรูร่วงได้",
 	},
 	"driller": {
 		"name": "Void Driller", "radius": 34.0, "damage": 40.0, "ammo": 3,
-		"color": Color(0.8, 0.45, 1.0), "drill_time": 0.8, "icon": "res://assets/weapons/driller.png",
-		"desc": "เจาะทะลุพื้นลึกเข้าไปเกือบวินาทีแล้วค่อยระเบิด ขุดถึงศัตรูที่หลบหลังกำบัง",
+		"color": Color(0.8, 0.45, 1.0), "drill_time": 0.8, "miss_carve": 78.0, "icon": "res://assets/weapons/driller.png",
+		"desc": "เจาะทะลุพื้นลึกแล้วค่อยระเบิด ถ้าไม่โดนตัวศัตรูจะระเบิดพื้นรอบข้างเป็นหลุมกว้าง ทำให้ศัตรูที่ยืนใกล้ ๆ ร่วงได้",
 	},
 	"double": {
 		"name": "Twin Strike", "radius": 30.0, "damage": 40.0, "ammo": 2, "shots": 2,
@@ -37,7 +39,7 @@ const DATA := {
 		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
-		"name": "Trident", "radius": 26.0, "damage": 35.0, "ammo": 2, "spread": 3, "spread_deg": 6.0,
+		"name": "Trident", "radius": 26.0, "damage": 35.0, "ammo": 4, "spread": 3, "spread_deg": 6.0,
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
 		"desc": "ยิงออกเป็น 3 นัดพร้อมกันแบบพัด กระจายโดนศัตรูได้ถึง 3 ตัว",
 	},
@@ -57,7 +59,7 @@ const DATA := {
 		"desc": "ฮีล 25 HP ให้เพื่อนทุกคนในวง และนัดถัดไปของทีม (อาวุธใดก็ได้) แรงขึ้น 50%",
 	},
 	"seeker": {
-		"name": "Hunter Seeker", "radius": 34.0, "damage": 50.0, "ammo": 1,
+		"name": "Hunter Seeker", "radius": 34.0, "damage": 40.0, "ammo": 1,
 		"homing": true, "homing_delay": 0.45, "turn_rate": 3.2,
 		"color": Color(1.0, 0.45, 0.85), "icon": "res://assets/weapons/seeker.png",
 		"desc": "กระสุนติดตาม บินไปครู่หนึ่งแล้วล็อกศัตรูที่ใกล้ที่สุด เลี้ยวตามไปเองไม่สนแรงโน้มถ่วง ใช้ได้ครั้งเดียว",

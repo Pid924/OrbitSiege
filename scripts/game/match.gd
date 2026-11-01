@@ -60,6 +60,9 @@ var terrain
 var units: Array = []
 var projectiles: Array = []
 var controllers: Array = []
+var carve_mult := 1.0  # stage-wide crater size (brittle ground on Shatter Reef)
+## Units start at least this far apart, so no single blast (Sky Lance is the widest) hits two at once.
+const MIN_SPAWN_GAP := 250.0
 var command_queue: Array = []
 
 var phase := Phase.AIMING
@@ -104,6 +107,7 @@ func _ready() -> void:
 func _build_world() -> void:
 	var cfg: Dictionary = GameSettings.STAGES[stage]
 	world_size = cfg.size
+	carve_mult = cfg.get("carve_mult", 1.0)
 	var stars := Starfield.new()
 	add_child(stars)
 	stars.generate(rng, world_size)
@@ -117,12 +121,21 @@ func _build_world() -> void:
 		stars.abyss_y = abyss_y
 		physics.uniform_gravity = Vector2(0, DRIFT_GRAVITY)
 		physics.bounds = Rect2(-400, -3000, world_size.x + 800, 3000 + abyss_y)
-		_spawn_units_on_islands(terrain.generate_islands(rng, cfg))
 	else:
 		physics.bounds = Rect2(Vector2(-250, -250), world_size + Vector2(500, 500))
-		_generate_planets()
-		terrain.generate(physics, rng)
-		_spawn_units()
+	# Some maps leave no room to start everyone far enough apart; make a new map then.
+	var spawns := []
+	for map_try in 8:
+		if cfg.kind == "islands":
+			spawns = _choose_spawns(_island_homes(terrain.generate_islands(rng, cfg)))
+		else:
+			physics.planets.clear()
+			_generate_planets()
+			terrain.generate(physics, rng)
+			spawns = _choose_spawns(_planet_homes())
+		if _min_pair_gap(spawns) >= MIN_SPAWN_GAP:
+			break
+	_create_units(spawns)
 
 	for team in 2:
 		for id in Weapons.LIST:
@@ -164,71 +177,106 @@ func _generate_planets() -> void:
 			physics.add_planet(c, r)
 
 
-func _spawn_units() -> void:
-	# Team 0 lives on the left-most planets, team 1 on the right-most ones.
+## Spawn spots per team: team 0 on the left-most planets, team 1 on the right-most ones.
+func _planet_homes() -> Array:
 	var sorted := physics.planets.duplicate()
 	sorted.sort_custom(func(a, b): return a.center.x < b.center.x)
-	var half := maxi(1, sorted.size() / 2)
+	# With an odd count both teams may use the middle planet, so each has room to spread out.
+	var half := maxi(1, (sorted.size() + 1) / 2)
 	var homes := [sorted.slice(0, half), sorted.slice(sorted.size() - half)]
-	var id := 0
-	for team in 2:
-		for i in UNITS_PER_TEAM:
-			var planet: Dictionary = homes[team][i % homes[team].size()]
-			var unit := Unit.new()
-			unit.position = _find_spawn_point(planet)
-			unit.fell.connect(_on_unit_fell)
-			add_child(unit)
-			unit.setup(id, team, UNIT_NAMES[team][i], TEAM_COLORS[team], physics, terrain)
-			unit.grounded = true
-			units.append(unit)
-			id += 1
+	return homes.map(func(h): return _planet_spots(h))
 
 
-func _spawn_units_on_islands(islands: Array) -> void:
-	# Team 0 starts on the left islands, team 1 on the right ones.
+## Spawn spots per team: team 0 on the left islands, team 1 on the right ones.
+func _island_homes(islands: Array) -> Array:
 	var half := maxi(1, islands.size() / 2)
 	var homes := [islands.slice(0, half), islands.slice(islands.size() - half)]
-	var id := 0
-	for team in 2:
-		for i in UNITS_PER_TEAM:
-			var unit := Unit.new()
-			unit.position = _find_island_spawn(homes[team])
-			unit.fell.connect(_on_unit_fell)
-			add_child(unit)
-			unit.setup(id, team, UNIT_NAMES[team][i], TEAM_COLORS[team], physics, terrain)
-			unit.grounded = true
-			units.append(unit)
-			id += 1
+	return homes.map(func(h): return _island_spots(h))
 
 
-func _find_island_spawn(islands: Array) -> Vector2:
-	var best := Vector2(world_size.x / 2.0, 100)
-	for attempt in 60:
+func _island_spots(islands: Array) -> Array:
+	var spots := []
+	for attempt in 160:
 		var island: Dictionary = islands[rng.randi() % islands.size()]
-		var x := rng.randf_range(lerpf(island.x0, island.x1, 0.12), lerpf(island.x0, island.x1, 0.88))
+		var x := rng.randf_range(lerpf(island.x0, island.x1, 0.08), lerpf(island.x0, island.x1, 0.92))
 		var pos := Vector2(x, 0)
 		while pos.y < abyss_y and not terrain.is_solid(pos + Vector2.DOWN):
 			pos.y += 1.0
-		if pos.y >= abyss_y:
-			continue
-		best = pos
-		var clear := true
-		for u in units:
-			if u.position.distance_to(pos) < 70.0:
-				clear = false
-				break
-		if clear:
-			return pos
+		if pos.y < abyss_y:
+			spots.append(pos)
+	return spots
+
+
+## Picks every unit's start. Each team takes UNITS_PER_TEAM spots from its own list. Random sets of all
+## six are tried until every unit is at least MIN_SPAWN_GAP from every other (else the most spread set).
+func _choose_spawns(team_spots: Array) -> Array:
+	for team in 2:
+		if team_spots[team].is_empty():
+			team_spots[team] = [Vector2(world_size.x * (0.25 + 0.5 * team), 100)]
+	# Start from a random set, then keep moving one unit of the closest pair to another of its
+	# team's spots whenever that does not shrink the smallest gap.
+	var best := []
+	for team in 2:
+		for i in UNITS_PER_TEAM:
+			best.append(team_spots[team][rng.randi() % team_spots[team].size()])
+	var best_gap := _min_pair_gap(best)
+	for attempt in 3000:
+		if best_gap >= MIN_SPAWN_GAP:
+			break
+		var k := _closest_unit_index(best)
+		var trial := best.duplicate()
+		var team := k / UNITS_PER_TEAM
+		trial[k] = team_spots[team][rng.randi() % team_spots[team].size()]
+		var gap := _min_pair_gap(trial)
+		if gap >= best_gap:
+			best = trial
+			best_gap = gap
 	return best
 
 
-func _find_spawn_point(planet: Dictionary) -> Vector2:
-	var center: Vector2 = planet.center
-	var radius: float = planet.radius
-	var best := center + Vector2.UP * radius
-	for attempt in 40:
+func _create_units(spawns: Array) -> void:
+	var id := 0
+	for team in 2:
+		for i in UNITS_PER_TEAM:
+			var unit := Unit.new()
+			unit.position = spawns[id]
+			unit.fell.connect(_on_unit_fell)
+			add_child(unit)
+			unit.setup(id, team, UNIT_NAMES[team][i], TEAM_COLORS[team], physics, terrain)
+			unit.grounded = true
+			units.append(unit)
+			id += 1
+
+
+func _min_pair_gap(points: Array) -> float:
+	var gap := INF
+	for i in points.size():
+		for j in range(i + 1, points.size()):
+			gap = minf(gap, points[i].distance_to(points[j]))
+	return gap
+
+
+## One of the two points in the closest pair, picked at random.
+func _closest_unit_index(points: Array) -> int:
+	var pair := [0, 1]
+	var gap := INF
+	for i in points.size():
+		for j in range(i + 1, points.size()):
+			var d: float = points[i].distance_to(points[j])
+			if d < gap:
+				gap = d
+				pair = [i, j]
+	return pair[rng.randi() % 2]
+
+
+func _planet_spots(planets: Array) -> Array:
+	var spots := []
+	for attempt in 150:
+		var planet: Dictionary = planets[rng.randi() % planets.size()]
+		var center: Vector2 = planet.center
+		var radius: float = planet.radius
 		# Prefer the upper half of the planet, it reads better on screen.
-		var angle := rng.randf_range(-PI * 0.9, -PI * 0.1) if attempt < 30 else rng.randf() * TAU
+		var angle := rng.randf_range(-PI * 0.9, -PI * 0.1) if attempt < 60 else rng.randf() * TAU
 		var dir := Vector2.from_angle(angle)
 		var pos := center + dir * radius * 1.4
 		while not terrain.is_solid(pos - dir) and pos.distance_to(center) > 1.0:
@@ -237,15 +285,8 @@ func _find_spawn_point(planet: Dictionary) -> Vector2:
 			continue
 		if physics.up_at(pos).dot(dir) < 0.9:
 			continue  # another planet pulls harder here
-		var clear := true
-		for u in units:
-			if u.position.distance_to(pos) < 70.0:
-				clear = false
-				break
-		if clear:
-			return pos
-		best = pos
-	return best
+		spots.append(pos)
+	return spots
 
 
 # --- Commands -------------------------------------------------------------
@@ -465,7 +506,7 @@ func unit_hit_points() -> PackedVector2Array:
 	return pts
 
 
-func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
+func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := false) -> void:
 	var w := Weapons.get_def(weapon_id)
 	if w.has("strike_width"):
 		_call_sky_strike(pos, weapon_id)
@@ -473,7 +514,10 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 	var radius: float = w.radius * shot_radius_mult
 	var shooter_team: int = current_team
 	if radius > 0.0:
-		terrain.carve(pos, w.get("carve", w.radius) * shot_radius_mult)
+		var crater: float = w.get("carve", w.radius)
+		if not direct and w.has("miss_carve"):
+			crater = w.miss_carve
+		terrain.carve(pos, crater * shot_radius_mult * carve_mult)
 	if w.has("boost"):
 		team_boost[shooter_team] = w.boost
 		_float_text(pos + Vector2(0, -60), "นัดถัดไปแรงขึ้น %d%%" % int(w.boost * 100), Color(0.5, 1.0, 0.6))
@@ -501,7 +545,8 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2) -> void:
 		_float_text(c + Vector2(0, -30), "-%d" % dmg, Color(1, 0.85, 0.4))
 	if w.has("bomblets"):
 		var back: Vector2 = -vel.normalized() if vel.length_squared() > 1.0 else physics.up_at(pos)
-		for i in int(w.bomblets):
+		var count: int = int(w.get("direct_bomblets", w.bomblets)) if direct else int(w.bomblets)
+		for i in count:
 			var dir := back.rotated(rng.randf_range(-1.1, 1.1))
 			_spawn_projectile(pos + dir * 6.0, dir * rng.randf_range(180.0, 300.0), "bomblet", 0.05)
 	var fx := Explosion.new()
@@ -532,7 +577,7 @@ func _sky_strike(pos: Vector2, axis: Vector2, w: Dictionary) -> void:
 	var width: float = w.strike_width * shot_radius_mult
 	var perp := Vector2(-axis.y, axis.x)
 	for k in range(-2, 3):
-		terrain.carve(pos + perp * (k * width * 0.4) - axis * 10.0, w.strike_carve * shot_radius_mult)
+		terrain.carve(pos + perp * (k * width * 0.4) - axis * 10.0, w.strike_carve * shot_radius_mult * carve_mult)
 	for u in units:
 		if not u.alive:
 			continue

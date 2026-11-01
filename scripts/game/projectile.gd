@@ -34,7 +34,9 @@ func tick(dt: float) -> void:
 			drill_left -= h
 			position += vel * h
 			game.terrain.carve(position, 9.0)
-			if drill_left <= 0.0 or game.unit_at(position) != null or not game.physics.bounds.has_point(position):
+			if game.unit_at(position) != null:
+				_detonate(true)
+			elif drill_left <= 0.0 or not game.physics.bounds.has_point(position):
 				_detonate()
 			continue
 		if w.has("homing") and age > w.homing_delay and _steer(w, h):
@@ -53,7 +55,7 @@ func tick(dt: float) -> void:
 			else:
 				_detonate()
 		elif age > unit_ignore_time and game.unit_at(position) != null:
-			_detonate()
+			_detonate(true)
 	trail.append(position)
 	if trail.size() > 40:
 		trail.pop_front()
@@ -74,9 +76,10 @@ func _steer(w: Dictionary, h: float) -> bool:
 	return true
 
 
-func _detonate() -> void:
+## `direct` = it burst on an enemy's body rather than on the ground.
+func _detonate(direct := false) -> void:
 	done = true
-	game.on_detonation(position, weapon_id, vel)
+	game.on_detonation(position, weapon_id, vel, direct)
 
 
 func _draw() -> void:
