@@ -8,6 +8,7 @@ var guide_button: Button
 var bot_button: Button
 var charge_button: Button
 var aim_button: Button
+var touch_button: Button
 
 
 func _ready() -> void:
@@ -25,27 +26,44 @@ func _ready() -> void:
 	ui.add_child(title)
 	ui.add_child(_label("เกมยิงปืนใหญ่ผลัดตาในอวกาศ  ·  ตั้งค่าแล้วเลือกด่านเพื่อเริ่ม", Vector2(0, 185), 22))
 
-	guide_button = _option_button(Vector2(400, 240))
+	guide_button = _option_button(Vector2(299, 236))
 	guide_button.pressed.connect(func():
 		GameSettings.guide = (GameSettings.guide + 1) % GameSettings.GUIDE_OPTIONS.size()
 		_refresh_options())
 	ui.add_child(guide_button)
-	aim_button = _option_button(Vector2(602, 240))
+	aim_button = _option_button(Vector2(501, 236))
 	aim_button.pressed.connect(func():
 		GameSettings.aim_speed = (GameSettings.aim_speed + 1) % GameSettings.AIM_OPTIONS.size()
 		_refresh_options())
 	ui.add_child(aim_button)
-	charge_button = _option_button(Vector2(804, 240))
+	charge_button = _option_button(Vector2(703, 236))
 	charge_button.pressed.connect(func():
 		GameSettings.charge_speed = (GameSettings.charge_speed + 1) % GameSettings.CHARGE_OPTIONS.size()
 		_refresh_options())
 	ui.add_child(charge_button)
-	bot_button = _option_button(Vector2(1006, 240))
+	bot_button = _option_button(Vector2(905, 236))
 	bot_button.pressed.connect(func():
 		GameSettings.bot_level = (GameSettings.bot_level + 1) % GameSettings.BOT_LEVELS.size()
 		_refresh_options())
 	ui.add_child(bot_button)
+	touch_button = _option_button(Vector2(1107, 236))
+	touch_button.pressed.connect(func():
+		GameSettings.touch_ui = (GameSettings.touch_ui + 1) % GameSettings.TOUCH_OPTIONS.size()
+		_refresh_options())
+	ui.add_child(touch_button)
 	_refresh_options()
+
+	if OS.has_feature("web"):
+		# Phones: full screen hides the browser bars; Android also locks to landscape.
+		var full := Button.new()
+		full.text = "เต็มจอ"
+		full.position = Vector2(1400, 24)
+		full.size = Vector2(176, 60)
+		full.focus_mode = Control.FOCUS_NONE
+		full.add_theme_font_size_override("font_size", 22)
+		full.pressed.connect(func():
+			JavaScriptBridge.eval("(function(){var d=document.documentElement;var p=d.requestFullscreen?d.requestFullscreen():(d.webkitRequestFullscreen?d.webkitRequestFullscreen():null);if(p&&p.then){p.then(function(){if(screen.orientation&&screen.orientation.lock){screen.orientation.lock('landscape').catch(function(){});}}).catch(function(){});}})()", true))
+		ui.add_child(full)
 
 	for i in GameSettings.STAGE_ORDER.size():
 		var id: String = GameSettings.STAGE_ORDER[i]
@@ -72,7 +90,7 @@ func _ready() -> void:
 		ui.add_child(b)
 		if i == 0:
 			b.grab_focus()
-	ui.add_child(_label("คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม" % GameSettings.STAGE_ORDER.size(), Vector2(0, 690), 16))
+	ui.add_child(_label("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม" % GameSettings.STAGE_ORDER.size(), Vector2(0, 690), 16))
 	var version := _label("v%s" % GameSettings.VERSION, Vector2(0, 860), 14)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	version.size.x = 1580
@@ -83,17 +101,18 @@ func _ready() -> void:
 func _option_button(pos: Vector2) -> Button:
 	var b := Button.new()
 	b.position = pos
-	b.size = Vector2(194, 50)
+	b.size = Vector2(194, 60)
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 15)
 	return b
 
 
 func _refresh_options() -> void:
-	guide_button.text = "เส้นนำวิถี: %s ▸" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
-	aim_button.text = "หมุนปืน: %s ▸" % GameSettings.AIM_OPTIONS[GameSettings.aim_speed][0]
-	charge_button.text = "แถบชาร์จ: %s ▸" % GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0]
-	bot_button.text = "บอท: %s ▸" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
+	guide_button.text = "เส้นนำวิถี: %s ›" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
+	aim_button.text = "หมุนปืน: %s ›" % GameSettings.AIM_OPTIONS[GameSettings.aim_speed][0]
+	charge_button.text = "แถบชาร์จ: %s ›" % GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0]
+	bot_button.text = "บอท: %s ›" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
+	touch_button.text = "ปุ่มบนจอ: %s ›" % GameSettings.TOUCH_OPTIONS[GameSettings.touch_ui][0]
 
 
 func _label(text: String, pos: Vector2, font_size: int) -> Label:

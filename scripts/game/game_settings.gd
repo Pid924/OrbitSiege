@@ -24,7 +24,7 @@ const STAGE_ORDER := ["drift", "titan", "orbit"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
-const VERSION := "1.0.1"
+const VERSION := "1.1.0"
 
 ## [label, seconds to fill the charge bar] for the human player.
 const CHARGE_OPTIONS := [["ช้ามาก", 5.0], ["ช้า", 3.6], ["ปกติ", 2.6], ["เร็ว", 1.6]]
@@ -38,3 +38,14 @@ static var guide := 4  # full line
 static var bot_level := 0  # easy
 static var charge_speed := 0  # slowest
 static var aim_speed := 0  # slowest
+## On-screen touch controls: auto (touchscreen detected), always on, off.
+const TOUCH_OPTIONS := ["อัตโนมัติ", "เปิด", "ปิด"]
+static var touch_ui := 0
+
+
+static func use_touch() -> bool:
+	if touch_ui == 1 or "--touch" in OS.get_cmdline_user_args():
+		return true
+	if touch_ui == 2:
+		return false
+	return DisplayServer.is_touchscreen_available()

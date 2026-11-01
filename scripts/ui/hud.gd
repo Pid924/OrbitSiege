@@ -4,6 +4,7 @@ extends CanvasLayer
 
 const Weapons := preload("res://scripts/sim/weapons.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
+const TouchControls := preload("res://scripts/ui/touch_controls.gd")
 
 const CARD_SIZE := Vector2(60, 60)
 const PANEL_WIDTH := 1160.0
@@ -24,6 +25,10 @@ var weapon_name: Label
 var weapon_stats: Label
 var weapon_desc: Label
 var _banner_time := 0.0
+var touch := false
+var touch_controls: Control
+var current_card: Button
+var replay_button: Button
 
 
 class WindGauge extends Control:
@@ -47,9 +52,17 @@ func setup(game_ref) -> void:
 	game.turn_started.connect(_on_turn_started)
 	game.game_over.connect(_on_game_over)
 	stage_label.text = "ด่าน: %s   ·   v%s" % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION]
+	if touch:
+		touch_controls = TouchControls.new()
+		add_child(touch_controls)
+		move_child(touch_controls, 0)
+		var player = game.controllers[0] if not game.autoplay else null
+		touch_controls.setup(game, player)
+		touch_controls.visible = player != null
 
 
 func _ready() -> void:
+	touch = GameSettings.use_touch()
 	info = _label(Vector2(16, 10), 20)
 	teams_label = _label(Vector2(16, 44), 14)
 	stage_label = _label(Vector2(640, 12), 14)
@@ -62,7 +75,7 @@ func _ready() -> void:
 	event_label.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
-	help.text = "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู"
+	help.text = "ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง = ซูม" if touch else "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู"
 
 	var menu_button := Button.new()
 	menu_button.text = "กลับเมนู"
@@ -70,6 +83,10 @@ func _ready() -> void:
 	menu_button.size = Vector2(110, 38)
 	menu_button.focus_mode = Control.FOCUS_NONE
 	menu_button.add_theme_font_size_override("font_size", 16)
+	if touch:
+		menu_button.position = Vector2(1300, 24)
+		menu_button.size = Vector2(150, 64)
+		menu_button.add_theme_font_size_override("font_size", 22)
 	menu_button.pressed.connect(func(): game.go_to_menu())
 	add_child(menu_button)
 
@@ -90,11 +107,25 @@ func _ready() -> void:
 	banner.add_theme_constant_override("outline_size", 8)
 	add_child(banner)
 
+	replay_button = Button.new()
+	replay_button.text = "เล่นอีกครั้ง"
+	replay_button.position = Vector2(640, 540)
+	replay_button.size = Vector2(320, 90)
+	replay_button.focus_mode = Control.FOCUS_NONE
+	replay_button.add_theme_font_size_override("font_size", 32)
+	replay_button.visible = false
+	replay_button.pressed.connect(func(): get_tree().reload_current_scene())
+	add_child(replay_button)
+
 
 func _build_weapon_panel() -> void:
 	var panel := Panel.new()
 	panel.position = Vector2(10, 756)
 	panel.size = Vector2(PANEL_WIDTH, 110)
+	if touch:
+		# Phones: one big card for the current weapon; tapping it opens the full picker.
+		panel.position = Vector2(300, 756)
+		panel.size = Vector2(946, 110)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.03, 0.04, 0.1, 0.75)
 	style.border_color = Color(1, 1, 1, 0.12)
@@ -115,6 +146,7 @@ func _build_weapon_panel() -> void:
 		card.tooltip_text = w.name
 		card.pressed.connect(_on_card_pressed.bind(i))
 		panel.add_child(card)
+		card.visible = not touch
 		var key := Label.new()
 		key.text = str((i + 1) % 10)
 		key.position = Vector2(6, 2)
@@ -134,6 +166,28 @@ func _build_weapon_panel() -> void:
 		weapon_cards.append(card)
 
 	var text_x := 8 + Weapons.LIST.size() * (CARD_SIZE.x + 5) + 6
+	if touch:
+		current_card = Button.new()
+		current_card.position = Vector2(8, 8)
+		current_card.size = Vector2(94, 94)
+		current_card.expand_icon = true
+		current_card.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		current_card.focus_mode = Control.FOCUS_NONE
+		current_card.add_theme_stylebox_override("normal", _card_style(true))
+		current_card.add_theme_stylebox_override("hover", _card_style(true))
+		current_card.pressed.connect(func(): touch_controls.open_picker())
+		panel.add_child(current_card)
+		var swap := Label.new()
+		swap.text = "แตะเปลี่ยน"
+		swap.position = Vector2(0, 74)
+		swap.size = Vector2(94, 18)
+		swap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		swap.add_theme_font_size_override("font_size", 12)
+		swap.add_theme_color_override("font_outline_color", Color.BLACK)
+		swap.add_theme_constant_override("outline_size", 3)
+		swap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		current_card.add_child(swap)
+		text_x = 114
 	weapon_name = Label.new()
 	weapon_name.position = Vector2(text_x, 2)
 	weapon_name.add_theme_font_size_override("font_size", 20)
@@ -145,7 +199,7 @@ func _build_weapon_panel() -> void:
 	panel.add_child(weapon_stats)
 	weapon_desc = Label.new()
 	weapon_desc.position = Vector2(text_x, 46)
-	weapon_desc.size = Vector2(PANEL_WIDTH - text_x - 10, 40)
+	weapon_desc.size = Vector2(panel.size.x - text_x - 10, 40)
 	weapon_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	weapon_desc.add_theme_font_size_override("font_size", 13)
 	panel.add_child(weapon_desc)
@@ -153,6 +207,9 @@ func _build_weapon_panel() -> void:
 	power_bar = ProgressBar.new()
 	power_bar.position = Vector2(8, 82)
 	power_bar.size = Vector2(PANEL_WIDTH - 16, 14)
+	if touch:
+		power_bar.position = Vector2(text_x, 86)
+		power_bar.size = Vector2(panel.size.x - text_x - 10, 16)
 	power_bar.max_value = 1.0
 	power_bar.step = 0.0
 	power_bar.show_percentage = false
@@ -189,15 +246,17 @@ func _process(delta: float) -> void:
 	weapon_name.text = w.name
 	weapon_stats.text = _stats_text(w)
 	weapon_desc.text = w.desc
+	if current_card:
+		current_card.icon = load(w.icon)
 	var view_team: int = 0 if not game.autoplay else game.current_team
 	for i in weapon_cards.size():
 		var id: String = Weapons.LIST[i]
 		var selected: bool = id == current
 		var left: int = game.ammo_left(view_team, id)
 		var usable: bool = game.weapon_available(view_team, id) if game.current_team == view_team else left != 0
-		ammo_labels[i].text = "∞" if left < 0 else "x%d" % left
+		ammo_labels[i].text = "ไม่อั้น" if left < 0 else "x%d" % left
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
-			ammo_labels[i].text = "≤40%"
+			ammo_labels[i].text = "HP<=40%"
 		weapon_cards[i].modulate = Color(1, 1, 1) if selected else (Color(0.7, 0.7, 0.75) if usable else Color(0.3, 0.3, 0.35))
 		weapon_cards[i].add_theme_stylebox_override("normal", _card_style(selected))
 		weapon_cards[i].add_theme_stylebox_override("hover", _card_style(selected, true))
@@ -209,7 +268,7 @@ func _process(delta: float) -> void:
 				hp += unit.hp
 		var line := "%s  เหลือ %d คน  %d HP" % [game.TEAM_NAMES[team], game.alive_count(team), hp]
 		if game.team_boost[team] > 0.0:
-			line += "   ⚡ นัดถัดไปแรงขึ้น %d%%" % int(game.team_boost[team] * 100)
+			line += "   (+) นัดถัดไปแรงขึ้น %d%%" % int(game.team_boost[team] * 100)
 		lines.append(line)
 	teams_label.text = "\n".join(lines)
 	wind_gauge.wind = game.physics.wind
@@ -266,10 +325,15 @@ func _on_turn_started(team: int, unit) -> void:
 
 
 func _on_game_over(winner: int) -> void:
+	replay_button.visible = true
+	if touch_controls:
+		touch_controls.visible = false
 	if winner < 0:
 		banner.text = "เสมอ!   กด R เพื่อเล่นอีกครั้ง"
 	elif winner == 0:
 		banner.text = "ชนะแล้ว!   กด R เพื่อเล่นอีกครั้ง"
 	else:
 		banner.text = "บอทชนะ   กด R เพื่อเล่นอีกครั้ง"
+	if touch:
+		banner.text = banner.text.split("   ")[0]
 	banner.modulate = Color.WHITE

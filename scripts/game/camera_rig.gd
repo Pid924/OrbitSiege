@@ -1,5 +1,6 @@
 extends Camera2D
 ## Follows whatever the match points it at. Mouse wheel zooms, right-drag pans.
+## On touch screens one finger on empty space pans and two fingers pinch to zoom.
 
 var target := Vector2.ZERO
 var world := Rect2(0, 0, 1600, 900)
@@ -8,6 +9,8 @@ var _pan := Vector2.ZERO
 var _dragging := false
 var _min_zoom := 0.5
 var _bias := Vector2.ZERO
+var _touches := {}  # finger index -> screen position, only fingers that started on empty space
+var _pinch_dist := 0.0
 
 
 ## `bias` shifts the view from the followed point, e.g. down so the deadly abyss stays in sight.
@@ -41,13 +44,42 @@ func _process(delta: float) -> void:
 	offset = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * shake
 
 
+func _zoom_by(factor: float) -> void:
+	zoom = (zoom * factor).clamp(Vector2.ONE * _min_zoom, Vector2.ONE * 1.4)
+
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_touches[event.index] = event.position
+		else:
+			_touches.erase(event.index)
+		_pinch_dist = _finger_distance()
+		return
+	if event is InputEventScreenDrag:
+		if not _touches.has(event.index):
+			return
+		_touches[event.index] = event.position
+		if _touches.size() >= 2:
+			var d := _finger_distance()
+			# Ignore fingers that almost touch: the ratio jumps wildly there.
+			if _pinch_dist > 40.0 and d > 40.0:
+				_zoom_by(clampf(d / _pinch_dist, 0.8, 1.25))
+			_pinch_dist = d
+		else:
+			_pan -= event.relative / zoom
+		return
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
-			zoom = (zoom * 1.1).clamp(Vector2.ONE * _min_zoom, Vector2.ONE * 1.4)
+			_zoom_by(1.1)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
-			zoom = (zoom / 1.1).clamp(Vector2.ONE * _min_zoom, Vector2.ONE * 1.4)
+			_zoom_by(1.0 / 1.1)
 		elif event.button_index == MOUSE_BUTTON_RIGHT:
 			_dragging = event.pressed
 	elif event is InputEventMouseMotion and _dragging:
 		_pan -= event.relative / zoom
+
+
+func _finger_distance() -> float:
+	var points := _touches.values()
+	return points[0].distance_to(points[1]) if points.size() >= 2 else 0.0
