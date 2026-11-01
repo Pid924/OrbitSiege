@@ -29,6 +29,8 @@ var touch := false
 var touch_controls: Control
 var current_card: Button
 var replay_button: Button
+var order_label: Label
+var _round_text := ""
 
 
 class WindGauge extends Control:
@@ -49,6 +51,7 @@ class WindGauge extends Control:
 
 func setup(game_ref) -> void:
 	game = game_ref
+	game.round_started.connect(_on_round_started)
 	game.turn_started.connect(_on_turn_started)
 	game.game_over.connect(_on_game_over)
 	stage_label.text = "ด่าน: %s   ·   v%s" % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION]
@@ -65,6 +68,8 @@ func _ready() -> void:
 	touch = GameSettings.use_touch()
 	info = _label(Vector2(16, 10), 20)
 	teams_label = _label(Vector2(16, 44), 14)
+	order_label = _label(Vector2(16, 88), 14)
+	order_label.modulate = Color(1, 1, 1, 0.85)
 	stage_label = _label(Vector2(640, 12), 14)
 	stage_label.size = Vector2(320, 20)
 	stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -99,8 +104,8 @@ func _ready() -> void:
 	_build_weapon_panel()
 
 	banner = Label.new()
-	banner.position = Vector2(0, 380)
-	banner.size = Vector2(1600, 130)
+	banner.position = Vector2(0, 330)
+	banner.size = Vector2(1600, 200)
 	banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	banner.add_theme_font_size_override("font_size", 44)
 	banner.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -238,7 +243,9 @@ func _process(delta: float) -> void:
 	var u = game.active_unit
 	if u:
 		var who: String = game.TEAM_NAMES[game.current_team]
-		info.text = "ตาที่ %d  -  %s: %s   %ds" % [game.turn_number, who, u.unit_name, ceili(maxf(game.turn_time_left, 0.0))]
+		info.text = "รอบ %d  ·  ตาที่ %d  -  %s: %s   %ds" % [game.round_number, game.turn_number, who, u.unit_name, ceili(maxf(game.turn_time_left, 0.0))]
+		var next: Array = game.upcoming_units().map(func(x): return "%s(%s)" % [x.unit_name, game.TEAM_NAMES[x.team]])
+		order_label.text = "ต่อไปในรอบนี้: " + ("  ›  ".join(next) if not next.is_empty() else "จบรอบแล้วขึ้นรอบใหม่")
 		info.modulate = game.TEAM_COLORS[game.current_team]
 		power_bar.value = u.charge
 	var current: String = game.current_weapon_id()
@@ -314,14 +321,27 @@ func _card_style(selected: bool, hover := false) -> StyleBoxFlat:
 	return _styles[key]
 
 
+func _on_round_started(round_number: int, first_team: int, coin_toss: bool) -> void:
+	var who: String = game.TEAM_NAMES[first_team]
+	if coin_toss:
+		_round_text = "รอบ %d   ·   สุ่มแล้ว: %s เริ่มก่อน" % [round_number, who]
+	else:
+		_round_text = "รอบ %d   ·   %s เริ่มก่อน (ใช้เวลาน้อยสุด)" % [round_number, who]
+
+
 func _on_turn_started(team: int, unit) -> void:
 	banner.text = "%s  -  %s" % [game.TEAM_NAMES[team], unit.unit_name]
+	var hold := 1.6
+	if _round_text != "":
+		banner.text = _round_text + "\n" + banner.text
+		_round_text = ""
+		hold = 2.8
 	var ev: String = game.event_text()
 	event_label.text = "เหตุการณ์: " + ev if ev != "" else ""
-	if ev != "":
+	if ev != "" and hold > 2.0:  # the event is announced once, when its round starts
 		banner.text += "\n" + ev
 	banner.modulate = Color(game.TEAM_COLORS[team], 1.0)
-	_banner_time = 1.6
+	_banner_time = hold
 
 
 func _on_game_over(winner: int) -> void:

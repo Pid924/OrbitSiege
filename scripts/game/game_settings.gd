@@ -19,7 +19,7 @@ const STAGES := {
 		"desc": "แนวหินเปราะ พื้นบาง ระเบิดทะลุง่าย ใช้ Void Driller กับ Star Cluster ทำให้ศัตรูร่วง",
 		"kind": "islands", "size": Vector2(2400, 1150),
 		"island_width": Vector2(300, 440), "gap": Vector2(60, 110), "depth": Vector2(40, 70),
-		"carve_mult": 1.25,
+		"carve_mult": 1.25, "sky_rocks": 2,
 	},
 	"orbit": {
 		"name": "Orbit Field",
@@ -31,7 +31,7 @@ const STAGE_ORDER := ["drift", "titan", "orbit", "reef"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
-const VERSION := "1.2.0"
+const VERSION := "1.3.0"
 
 ## [label, seconds to fill the charge bar] for the human player.
 const CHARGE_OPTIONS := [["ช้ามาก", 5.0], ["ช้า", 3.6], ["ปกติ", 2.6], ["เร็ว", 1.6]]

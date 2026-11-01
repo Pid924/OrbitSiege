@@ -61,9 +61,16 @@ func generate_islands(rng: RandomNumberGenerator, cfg: Dictionary) -> Array:
 		_paint_island(island, surface, jag, speck, PALETTES[palette_index % PALETTES.size()])
 		islands.append(island)
 		x += w + rng.randf_range(gap.x, gap.y)
-	# Small rocks hanging over the gaps (never over an island, so nobody spawns on one).
+	# Small rocks hanging over the gaps. Spawns scan down from just above each island's top,
+	# so rocks above islands sit higher than that (see Match._island_spots).
+	var sky_rocks: int = cfg.get("sky_rocks", 0)
+	for island in islands:
+		for k in sky_rocks:
+			var rx := lerpf(island.x0, island.x1, (k + rng.randf_range(0.2, 0.8)) / sky_rocks)
+			var c := Vector2(rx, rng.randf_range(0.1, 0.24) * height)
+			_paint_rock(c, rng.randf_range(18.0, 30.0), speck, PALETTES[(palette_index + 2) % PALETTES.size()])
 	for i in range(islands.size() - 1):
-		if rng.randf() < 0.3:
+		if sky_rocks == 0 and rng.randf() < 0.3:
 			continue
 		var gap_x: float = (islands[i].x1 + islands[i + 1].x0) / 2.0
 		var c := Vector2(gap_x, rng.randf_range(0.18, 0.3) * height)

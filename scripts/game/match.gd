@@ -33,14 +33,9 @@ const REFIRE_DELAY := 0.35
 const MAX_WIND := 55.0
 const MAX_CRATES := 4
 const EVENT_CHANCE := 0.4
-## Turn events: [id, banner text]. Effects are applied in _start_turn / on_detonation.
-const EVENTS := [
-	["dmg_up", "ทุกนัดในเทิร์นนี้แรงขึ้น 10%"],
-	["dmg_down", "ทุกนัดในเทิร์นนี้เบาลง 10%"],
-	["time_down", "เวลาเทิร์นนี้ลดลง 5 วินาที"],
-	["time_up", "เวลาเทิร์นนี้เพิ่มขึ้น 5 วินาที"],
-	["blast_up", "ระเบิดเทิร์นนี้กว้างขึ้น 10%"],
-]
+## Round events last a whole round. Each has a random size: damage and blast -20%..+20%
+## (steps of 5%), turn time -10..+10 s. Applied in _fire and _start_turn.
+const EVENT_KINDS := ["dmg", "time", "blast"]
 ## Crates hold one extra use of any weapon except the unlimited Plasma Shell.
 const AMMO_LOOT := ["cluster", "driller", "double", "triple", "rage", "snare", "mender", "seeker", "sky"]
 const TEAM_COLORS := [Color(0.35, 0.8, 1.0), Color(1.0, 0.45, 0.4)]
@@ -48,6 +43,7 @@ const TEAM_NAMES := ["ผู้เล่น", "บอท"]
 const UNIT_NAMES := [["Nova", "Orion", "Vega"], ["Zr-1", "Zr-2", "Zr-3"]]
 
 signal turn_started(team: int, unit)
+signal round_started(round_number: int, first_team: int, coin_toss: bool)
 signal game_over(winner: int)
 
 var stage := "drift"
@@ -67,15 +63,20 @@ var command_queue: Array = []
 
 var phase := Phase.AIMING
 var current_team := 1  # flipped to 0 by the first turn
-var team_cursor := [0, 0]
 var team_weapon := [0, 0]
 var team_ammo := [{}, {}]  # weapon id -> uses left, only for weapons with limited ammo
 var shots_left := 0
 var refire_timer := 0.0
 var last_shot := {}
 var crates: Array = []
-var turns_since_drop := 0
-var turn_event := ""  # id from EVENTS, or "" for a normal turn
+## A round = every living unit plays once. Round 1 starts with a coin toss for the first team;
+## later rounds start with whoever used the least time last round, teams still taking turns.
+var round_number := 0
+var round_queue: Array = []  # units still to play this round, in order
+var time_used := {}  # unit_id -> seconds spent aiming this round
+var last_round_time := {}  # time_used of the previous round, for the HUD
+var turn_start_time := TURN_TIME
+var round_event := {}  # {"kind": "dmg"|"time"|"blast", "value": int} or {} for a calm round
 var team_boost := [0.0, 0.0]  # extra damage for the team's next shot, from Nano Mender
 var shot_dmg_mult := 1.0
 var shot_radius_mult := 1.0
@@ -199,7 +200,7 @@ func _island_spots(islands: Array) -> Array:
 	for attempt in 160:
 		var island: Dictionary = islands[rng.randi() % islands.size()]
 		var x := rng.randf_range(lerpf(island.x0, island.x1, 0.08), lerpf(island.x0, island.x1, 0.92))
-		var pos := Vector2(x, 0)
+		var pos := Vector2(x, island.base - 80.0)  # island tops never rise above base - 70
 		while pos.y < abyss_y and not terrain.is_solid(pos + Vector2.DOWN):
 			pos.y += 1.0
 		if pos.y < abyss_y:
@@ -365,15 +366,11 @@ func _fire(angle: float, power: float) -> void:
 	last_power[active_unit.unit_id] = power
 	last_shot = {"angle": angle, "power": power, "weapon": weapon}
 	shots_left = int(w.get("shots", 1)) - 1
-	shot_dmg_mult = 1.0
-	if turn_event == "dmg_up":
-		shot_dmg_mult *= 1.1
-	elif turn_event == "dmg_down":
-		shot_dmg_mult *= 0.9
+	shot_dmg_mult = 1.0 + _event_value("dmg") / 100.0
 	if team_boost[current_team] > 0.0 and not w.has("boost"):
 		shot_dmg_mult *= 1.0 + team_boost[current_team]
 		team_boost[current_team] = 0.0
-	shot_radius_mult = 1.1 if turn_event == "blast_up" else 1.0
+	shot_radius_mult = 1.0 + _event_value("blast") / 100.0
 	_launch(last_shot)
 	# Special weapons are one-off picks: the next turn starts back on weapon 1.
 	team_weapon[current_team] = 0
@@ -659,6 +656,7 @@ func _end_turn() -> void:
 		active_unit.is_active = false
 		active_unit.charge = 0.0
 		active_unit.rooted_turns = maxi(0, active_unit.rooted_turns - 1)
+		time_used[active_unit.unit_id] = turn_start_time - maxf(turn_time_left, 0.0)
 	var a := alive_count(0)
 	var b := alive_count(1)
 	if a == 0 or b == 0:
@@ -666,36 +664,78 @@ func _end_turn() -> void:
 		winner = -1 if a == b else (0 if a > 0 else 1)
 		active_unit = null
 		if autoplay:
-			print("game over after %d turns, winner: %d" % [turn_number, winner])
+			print("game over after %d turns (%d rounds), winner: %d" % [turn_number, round_number, winner])
 		game_over.emit(winner)
 		return
 	_start_turn()
 
 
+func _start_round() -> void:
+	round_number += 1
+	var coin_toss := round_number == 1
+	var queues := [[], []]
+	for u in units:
+		if u.alive:
+			queues[u.team].append(u)
+	var first_team: int
+	if coin_toss:
+		first_team = rng.randi() % 2
+	else:
+		# Fastest unit of last round first; inside a team, faster units play earlier.
+		for team in 2:
+			queues[team].sort_custom(func(x, y): return _used(x) < _used(y) or (_used(x) == _used(y) and x.unit_id < y.unit_id))
+		var t0: float = _used(queues[0][0])
+		var t1: float = _used(queues[1][0])
+		first_team = 0 if t0 < t1 else (1 if t1 < t0 else rng.randi() % 2)
+	round_queue.clear()
+	var team := first_team
+	while not queues[0].is_empty() or not queues[1].is_empty():
+		if not queues[team].is_empty():
+			round_queue.append(queues[team].pop_front())
+		team = 1 - team
+	last_round_time = time_used.duplicate()
+	time_used.clear()
+	if round_number > 1:
+		_drop_crate()  # a supply crate after every finished round
+	round_event = {}
+	if rng.randf() < EVENT_CHANCE:
+		var kind: String = EVENT_KINDS[rng.randi() % EVENT_KINDS.size()]
+		var value := 0
+		while value == 0:
+			value = rng.randi_range(-10, 10) if kind == "time" else rng.randi_range(-4, 4) * 5
+		round_event = {"kind": kind, "value": value}
+	if autoplay:
+		print("round %d first team %d order %s event %s" % [round_number, first_team, round_queue.map(func(u): return u.unit_name), round_event])
+	round_started.emit(round_number, first_team, coin_toss)
+
+
+func _used(u) -> float:
+	return time_used.get(u.unit_id, TURN_TIME)
+
+
+func _event_value(kind: String) -> int:
+	return int(round_event.value) if not round_event.is_empty() and round_event.kind == kind else 0
+
+
 func _start_turn() -> void:
 	turn_number += 1
-	current_team = 1 - current_team
-	var team_units := units.filter(func(u): return u.team == current_team)
-	for i in team_units.size():
-		var idx: int = (team_cursor[current_team] + i) % team_units.size()
-		if team_units[idx].alive:
-			active_unit = team_units[idx]
-			team_cursor[current_team] = idx + 1
-			break
+	active_unit = null
+	while active_unit == null:
+		while round_queue.is_empty():
+			_start_round()
+		var u = round_queue.pop_front()
+		if u.alive:
+			active_unit = u
+	current_team = active_unit.team
 	physics.wind = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, MAX_WIND)
-	# A crate drops each time every living unit has had a turn.
-	turns_since_drop += 1
-	if turns_since_drop > alive_count(0) + alive_count(1):
-		turns_since_drop = 1
-		_drop_crate()
-	turn_event = EVENTS[rng.randi() % EVENTS.size()][0] if rng.randf() < EVENT_CHANCE else ""
 	active_unit.is_active = true
 	if not weapon_available(current_team, current_weapon_id()):
 		team_weapon[current_team] = 0
 	shots_left = 0
 	refire_timer = 0.0
 	camera.follow(active_unit.position, true)
-	turn_time_left = TURN_TIME + (-5.0 if turn_event == "time_down" else (5.0 if turn_event == "time_up" else 0.0))
+	turn_start_time = TURN_TIME + _event_value("time")
+	turn_time_left = turn_start_time
 	command_queue.clear()
 	phase = Phase.AIMING
 	controllers[current_team].begin_turn(active_unit)
@@ -704,8 +744,18 @@ func _start_turn() -> void:
 	turn_started.emit(current_team, active_unit)
 
 
+## Units still to play this round, after the active one.
+func upcoming_units() -> Array:
+	return round_queue.filter(func(u): return u.alive)
+
+
 func event_text() -> String:
-	for e in EVENTS:
-		if e[0] == turn_event:
-			return e[1]
+	var v := absi(_event_value(round_event.get("kind", "")))
+	match round_event.get("kind", ""):
+		"dmg":
+			return "รอบนี้อาวุธ%s %d%%" % ["แรงขึ้น" if round_event.value > 0 else "เบาลง", v]
+		"time":
+			return "รอบนี้เวลาต่อตา%s %d วินาที" % ["เพิ่มขึ้น" if round_event.value > 0 else "ลดลง", v]
+		"blast":
+			return "รอบนี้วงระเบิด%s %d%%" % ["กว้างขึ้น" if round_event.value > 0 else "แคบลง", v]
 	return ""
