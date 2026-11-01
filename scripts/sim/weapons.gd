@@ -10,6 +10,7 @@ extends RefCounted
 ##   boost        the team's next shot (any weapon) deals this much more damage
 ##   carve        crater radius when it differs from the damage radius
 ##   drill_time   keeps boring through the ground before detonating
+##   drill_width  radius of the tunnel it bores (default 9)
 ##   homing       after homing_delay, locks on the nearest enemy and steers at turn_rate (rad/s)
 ##   strike_width marks a spot; a beam from the sky then hits a strip this wide (each side)
 ##   miss_carve   crater radius when it bursts in the ground without touching a unit
@@ -29,9 +30,9 @@ const DATA := {
 		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูก ถ้าโดนตัวศัตรูจัง ๆ แตก 8 ลูก กินพื้นหายไปเยอะ ทำให้ศัตรูร่วงได้",
 	},
 	"driller": {
-		"name": "Void Driller", "radius": 34.0, "damage": 40.0, "ammo": 3,
-		"color": Color(0.8, 0.45, 1.0), "drill_time": 0.8, "miss_carve": 78.0, "icon": "res://assets/weapons/driller.png",
-		"desc": "เจาะทะลุพื้นลึกแล้วค่อยระเบิด ถ้าไม่โดนตัวศัตรูจะระเบิดพื้นรอบข้างเป็นหลุมกว้าง ทำให้ศัตรูที่ยืนใกล้ ๆ ร่วงได้",
+		"name": "Void Driller", "radius": 34.0, "carve": 110.0, "damage": 0.0, "ammo": 3,
+		"color": Color(0.8, 0.45, 1.0), "drill_time": 0.8, "drill_width": 22.0, "icon": "res://assets/weapons/driller.png",
+		"desc": "ไม่มีดาเมจ เจาะทะลุพื้นเป็นอุโมงค์กว้าง แล้วทลายพื้นเป็นหลุมใหญ่ (รัศมี 110) ทำให้ศัตรูที่ยืนอยู่ร่วงลงไป",
 	},
 	"double": {
 		"name": "Twin Strike", "radius": 30.0, "damage": 40.0, "ammo": 2, "shots": 2,
@@ -39,7 +40,7 @@ const DATA := {
 		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
-		"name": "Trident", "radius": 26.0, "damage": 35.0, "ammo": 4, "spread": 3, "spread_deg": 6.0,
+		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0,
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
 		"desc": "ยิงออกเป็น 3 นัดพร้อมกันแบบพัด กระจายโดนศัตรูได้ถึง 3 ตัว",
 	},

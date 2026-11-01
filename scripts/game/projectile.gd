@@ -33,7 +33,7 @@ func tick(dt: float) -> void:
 		if drill_left >= 0.0:
 			drill_left -= h
 			position += vel * h
-			game.terrain.carve(position, 9.0)
+			game.terrain.carve(position, w.get("drill_width", 9.0))
 			if game.unit_at(position) != null:
 				_detonate(true)
 			elif drill_left <= 0.0 or not game.physics.bounds.has_point(position):

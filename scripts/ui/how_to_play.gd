@@ -12,7 +12,7 @@ signal closed
 const TIPS := {
 	"plasma": "กระสุนพื้นฐาน ระเบิดวงกว้าง ใช้ได้ตลอด",
 	"cluster": "แตกเป็นลูกย่อย 5 ลูก โดนตัวจัง ๆ แตก 8 ลูก กินพื้นเยอะ",
-	"driller": "เจาะพื้นลึกแล้วระเบิด ถ้าไม่โดนตัว ระเบิดพื้นรอบข้างเป็นหลุมกว้าง",
+	"driller": "ไม่มีดาเมจ เจาะพื้นเป็นหลุมใหญ่ ทำให้ศัตรูร่วง",
 	"double": "ยิง 2 นัดในตาเดียว มุมและแรงเดิม",
 	"triple": "ยิง 3 นัดพร้อมกันแบบพัด",
 	"rage": "ใช้ได้เมื่อ HP ไม่เกิน 40% ระเบิดแรงที่สุด",
@@ -86,7 +86,8 @@ func build(button_text: String) -> void:
 		icon.size = Vector2(56, 56)
 		add_child(icon)
 		var uses := "ใช้ได้ไม่จำกัด" if not w.has("ammo") else "%d ครั้งต่อเกม" % int(w.ammo)
-		var head := _text("%d. %s   ·   ดาเมจ %d   ·   %s" % [(i + 1) % 10, w.name, int(w.damage), uses], Vector2(746, row_y - 4), 19, Vector2(830, 26))
+		var dmg := "ไม่มีดาเมจ" if w.damage <= 0.0 else "ดาเมจ %d" % int(w.damage)
+		var head := _text("%d. %s   ·   %s   ·   %s" % [(i + 1) % 10, w.name, dmg, uses], Vector2(746, row_y - 4), 19, Vector2(830, 26))
 		head.add_theme_color_override("font_color", w.color.lightened(0.3))
 		var desc := _text(TIPS.get(Weapons.LIST[i], w.desc), Vector2(746, row_y + 24), 16, Vector2(830, 26))
 		desc.modulate = Color(1, 1, 1, 0.85)

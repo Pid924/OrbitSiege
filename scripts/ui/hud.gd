@@ -327,6 +327,9 @@ func _stats_text(w: Dictionary) -> String:
 		parts.append("ฮีล %d" % w.heal)
 		parts.append("ดาเมจศัตรู %d" % w.damage)
 		parts.append("รัศมี %d" % w.heal_radius)
+	elif w.damage <= 0.0:
+		parts.append("ไม่มีดาเมจ")
+		parts.append("หลุมกว้าง %d" % w.get("carve", w.radius))
 	else:
 		parts.append("ดาเมจ %d" % w.damage)
 		parts.append("รัศมีระเบิด %d" % w.radius)
