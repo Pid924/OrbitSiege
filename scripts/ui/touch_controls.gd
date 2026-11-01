@@ -3,6 +3,7 @@ extends Control
 ## would, on the local PlayerController, so every action still goes through match commands.
 
 const Weapons := preload("res://scripts/sim/weapons.gd")
+const L := preload("res://scripts/game/i18n.gd")
 
 var game
 var player  # PlayerController of the local team, or null in autoplay
@@ -35,14 +36,14 @@ func setup(game_ref, player_ref) -> void:
 	_arrow_button(Vector2.RIGHT, Vector2(160, 742), Vector2(124, 124), func(on): player.touch_walk = 1 if on else 0)
 	_arrow_button(Vector2.UP, Vector2(1262, 612), Vector2(120, 116), func(on): player.touch_aim = -1 if on else 0)
 	_arrow_button(Vector2.DOWN, Vector2(1262, 750), Vector2(120, 116), func(on): player.touch_aim = 1 if on else 0)
-	var fire := _hold_button("ยิง", Vector2(1396, 684), Vector2(180, 180), func(on): player.touch_fire = on)
+	var fire := _hold_button(L.t("ยิง"), Vector2(1396, 684), Vector2(180, 180), func(on): player.touch_fire = on)
 	fire.add_theme_font_size_override("font_size", 40)
 	fire.add_theme_stylebox_override("normal", _style(Color(0.55, 0.16, 0.12, 0.8), 60))
 	fire.add_theme_stylebox_override("pressed", _style(Color(0.85, 0.3, 0.15, 0.9), 60))
 	fire.add_theme_stylebox_override("hover", _style(Color(0.55, 0.16, 0.12, 0.8), 60))
 
 	fine_button = Button.new()
-	fine_button.text = "เล็งละเอียด"
+	fine_button.text = L.t("เล็งละเอียด")
 	fine_button.toggle_mode = true
 	fine_button.position = Vector2(1396, 612)
 	fine_button.size = Vector2(180, 60)
@@ -110,7 +111,7 @@ func _build_picker() -> void:
 	add_child(picker)
 
 	var title := Label.new()
-	title.text = "เลือกอาวุธ  (แตะที่ว่างเพื่อปิด)"
+	title.text = L.t("เลือกอาวุธ  (แตะที่ว่างเพื่อปิด)")
 	title.position = Vector2(0, 150)
 	title.size = Vector2(1600, 40)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -161,9 +162,9 @@ func open_picker() -> void:
 		var id: String = Weapons.LIST[i]
 		var left: int = game.ammo_left(player.team, id)
 		var usable: bool = game.weapon_available(player.team, id)
-		picker_ammo[i].text = "ไม่จำกัด" if left < 0 else "เหลือ %d" % left
+		picker_ammo[i].text = L.t("ไม่จำกัด") if left < 0 else L.t("เหลือ %d") % left
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
-			picker_ammo[i].text = "ใช้ได้เมื่อ HP ไม่เกิน 40%"
+			picker_ammo[i].text = L.t("ใช้ได้เมื่อ HP ไม่เกิน 40%")
 		picker_cards[i].modulate = Color.WHITE if usable else Color(0.4, 0.4, 0.45)
 	picker.visible = true
 	picker_opened = true

@@ -4,6 +4,7 @@ extends Node2D
 const Starfield := preload("res://scripts/world/starfield.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 const HowToPlay := preload("res://scripts/ui/how_to_play.gd")
+const L := preload("res://scripts/game/i18n.gd")
 
 var guide_button: Button
 var bot_button: Button
@@ -27,7 +28,8 @@ func _ready() -> void:
 	var title := _label("ORBIT SIEGE", Vector2(0, 70), 84)
 	title.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
 	ui.add_child(title)
-	ui.add_child(_label("เกมยิงปืนใหญ่ผลัดตาในอวกาศ  ·  ตั้งค่าแล้วเลือกด่านเพื่อเริ่ม", Vector2(0, 185), 22))
+	ui.add_child(_label(L.t("เกมยิงปืนใหญ่ผลัดตาในอวกาศ  ·  ตั้งค่าแล้วเลือกด่านเพื่อเริ่ม"), Vector2(0, 185), 22))
+	_build_flags()
 
 	guide_button = _option_button(Vector2(299, 236))
 	guide_button.pressed.connect(func():
@@ -57,18 +59,18 @@ func _ready() -> void:
 	_refresh_options()
 
 	var help := Button.new()
-	help.text = "วิธีเล่น / อาวุธ"
+	help.text = L.t("วิธีเล่น / อาวุธ")
 	help.position = Vector2(24, 24)
 	help.size = Vector2(220, 60)
 	help.focus_mode = Control.FOCUS_NONE
 	help.add_theme_font_size_override("font_size", 22)
-	help.pressed.connect(func(): _show_help("ปิด", ""))
+	help.pressed.connect(func(): _show_help("@close", ""))
 	ui.add_child(help)
 
 	if OS.has_feature("web"):
 		# Phones: full screen hides the browser bars; Android also locks to landscape.
 		var full := Button.new()
-		full.text = "เต็มจอ"
+		full.text = L.t("เต็มจอ")
 		full.position = Vector2(1400, 24)
 		full.size = Vector2(176, 60)
 		full.focus_mode = Control.FOCUS_NONE
@@ -85,13 +87,13 @@ func _ready() -> void:
 		b.size = Vector2(800, 88)
 		b.pressed.connect(_start.bind(id))
 		var heading := Label.new()
-		heading.text = "ด่าน %d: %s" % [i + 1, stage.name]
+		heading.text = L.t("ด่าน %d: %s") % [i + 1, stage.name]
 		heading.position = Vector2(24, 4)
 		heading.add_theme_font_size_override("font_size", 26)
 		heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(heading)
 		var desc := Label.new()
-		desc.text = stage.desc
+		desc.text = L.t(stage.desc)
 		desc.position = Vector2(24, 44)
 		desc.size = Vector2(752, 40)
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -102,7 +104,7 @@ func _ready() -> void:
 		ui.add_child(b)
 		if i == 0:
 			b.grab_focus()
-	ui.add_child(_label("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม" % GameSettings.STAGE_ORDER.size(), Vector2(0, 708), 16))
+	ui.add_child(_label(L.t("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม") % GameSettings.STAGE_ORDER.size(), Vector2(0, 708), 16))
 	var version := _label("v%s" % GameSettings.VERSION, Vector2(0, 860), 14)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	version.size.x = 1580
@@ -110,21 +112,57 @@ func _ready() -> void:
 	ui.add_child(version)
 
 
+## One flag per language; the chosen one is lit and framed. Picking another reloads the menu.
+func _build_flags() -> void:
+	var gap := 8.0
+	var flag_size := Vector2(72, 48)
+	var x := (1600.0 - L.LANGS.size() * (flag_size.x + gap) + gap) / 2.0
+	for code in L.LANGS:
+		var b := Button.new()
+		b.position = Vector2(x, 18)
+		b.size = flag_size + Vector2(8, 8)
+		b.focus_mode = Control.FOCUS_NONE
+		b.tooltip_text = code.to_upper()
+		var on: bool = code == L.lang
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(1, 1, 1, 0.08)
+		box.border_color = Color(1.0, 0.85, 0.3) if on else Color(1, 1, 1, 0.2)
+		box.set_border_width_all(4 if on else 1)
+		box.set_corner_radius_all(6)
+		for state in ["normal", "hover", "pressed"]:
+			b.add_theme_stylebox_override(state, box)
+		var img := TextureRect.new()
+		img.texture = load(L.FLAGS[code])
+		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		img.stretch_mode = TextureRect.STRETCH_SCALE
+		img.position = Vector2(4, 4)
+		img.size = flag_size
+		img.modulate = Color.WHITE if on else Color(1, 1, 1, 0.55)
+		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(img)
+		b.pressed.connect(func():
+			if code != L.lang:
+				L.set_lang(code)
+				get_tree().reload_current_scene())
+		ui.add_child(b)
+		x += flag_size.x + gap + 8
+
+
 func _option_button(pos: Vector2) -> Button:
 	var b := Button.new()
 	b.position = pos
 	b.size = Vector2(194, 60)
 	b.focus_mode = Control.FOCUS_NONE
-	b.add_theme_font_size_override("font_size", 15)
+	b.add_theme_font_size_override("font_size", 15 if L.lang == "th" else 14)
 	return b
 
 
 func _refresh_options() -> void:
-	guide_button.text = "เส้นนำวิถี: %s ›" % GameSettings.GUIDE_OPTIONS[GameSettings.guide][0]
-	aim_button.text = "หมุนปืน: %s ›" % GameSettings.AIM_OPTIONS[GameSettings.aim_speed][0]
-	charge_button.text = "แถบชาร์จ: %s ›" % GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0]
-	bot_button.text = "บอท: %s ›" % GameSettings.BOT_LEVELS[GameSettings.bot_level][0]
-	touch_button.text = "ปุ่มบนจอ: %s ›" % GameSettings.TOUCH_OPTIONS[GameSettings.touch_ui]
+	guide_button.text = L.t("เส้นนำวิถี: %s ›") % L.t(GameSettings.GUIDE_OPTIONS[GameSettings.guide][0])
+	aim_button.text = L.t("หมุนปืน: %s ›") % L.t(GameSettings.AIM_OPTIONS[GameSettings.aim_speed][0])
+	charge_button.text = L.t("แถบชาร์จ: %s ›") % L.t(GameSettings.CHARGE_OPTIONS[GameSettings.charge_speed][0])
+	bot_button.text = L.t("บอท: %s ›") % L.t(GameSettings.BOT_LEVELS[GameSettings.bot_level][0])
+	touch_button.text = L.t("ปุ่มบนจอ: %s ›") % L.t(GameSettings.TOUCH_OPTIONS[GameSettings.touch_ui])
 
 
 func _label(text: String, pos: Vector2, font_size: int) -> Label:
@@ -150,7 +188,7 @@ func _start(stage_id: String) -> void:
 	if help_open:
 		return
 	if not HowToPlay.seen():
-		_show_help("เริ่มเกม", stage_id)  # explain the game before the first match
+		_show_help(L.t("เริ่มเกม"), stage_id)  # explain the game before the first match
 		return
 	_begin(stage_id)
 

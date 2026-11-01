@@ -4,6 +4,7 @@ extends Control
 
 const Weapons := preload("res://scripts/sim/weapons.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
+const L := preload("res://scripts/game/i18n.gd")
 const SAVE_PATH := "user://settings.cfg"
 
 signal closed
@@ -44,7 +45,7 @@ func build(button_text: String) -> void:
 	bg.size = size
 	add_child(bg)
 
-	var title := _text("วิธีเล่น Orbit Siege", Vector2(40, 22), 34, Vector2(900, 50))
+	var title := _text(L.t("วิธีเล่น Orbit Siege"), Vector2(40, 22), 34, Vector2(900, 50))
 	title.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
 
 	var touch := GameSettings.use_touch()
@@ -71,10 +72,10 @@ func build(button_text: String) -> void:
 		"Enter = ข้ามตา   ล้อเมาส์ = ซูม",
 	]
 	var y := 84.0
-	y = _section("กติกา", rules, y)
-	y = _section("การควบคุม" + (" (มือถือ)" if touch else " (คีย์บอร์ด)"), controls, y + 8)
+	y = _section(L.t("กติกา"), rules, y)
+	y = _section(L.t("การควบคุม (มือถือ)") if touch else L.t("การควบคุม (คีย์บอร์ด)"), controls, y + 8)
 
-	_text("อาวุธทั้งหมด", Vector2(680, 84), 24, Vector2(900, 34)).add_theme_color_override("font_color", Color(1, 0.85, 0.45))
+	_text(L.t("อาวุธทั้งหมด"), Vector2(680, 84), 24, Vector2(900, 34)).add_theme_color_override("font_color", Color(1, 0.85, 0.45))
 	for i in Weapons.LIST.size():
 		var w := Weapons.get_def(Weapons.LIST[i])
 		var row_y := 122.0 + i * 68.0
@@ -85,15 +86,15 @@ func build(button_text: String) -> void:
 		icon.position = Vector2(680, row_y)
 		icon.size = Vector2(56, 56)
 		add_child(icon)
-		var uses := "ใช้ได้ไม่จำกัด" if not w.has("ammo") else "%d ครั้งต่อเกม" % int(w.ammo)
-		var dmg := "ไม่มีดาเมจ" if w.damage <= 0.0 else "ดาเมจ %d" % int(w.damage)
+		var uses := L.t("ใช้ได้ไม่จำกัด") if not w.has("ammo") else L.t("%d ครั้งต่อเกม") % int(w.ammo)
+		var dmg := L.t("ไม่มีดาเมจ") if w.damage <= 0.0 else L.t("ดาเมจ %d") % int(w.damage)
 		var head := _text("%d. %s   ·   %s   ·   %s" % [(i + 1) % 10, w.name, dmg, uses], Vector2(746, row_y - 4), 19, Vector2(830, 26))
 		head.add_theme_color_override("font_color", w.color.lightened(0.3))
-		var desc := _text(TIPS.get(Weapons.LIST[i], w.desc), Vector2(746, row_y + 24), 16, Vector2(830, 26))
+		var desc := _text(L.t(TIPS.get(Weapons.LIST[i], w.desc)), Vector2(746, row_y + 24), 16, Vector2(830, 26))
 		desc.modulate = Color(1, 1, 1, 0.85)
 
 	dont_show = CheckBox.new()
-	dont_show.text = "ไม่ต้องแสดงก่อนเริ่มเกมอีก"
+	dont_show.text = L.t("ไม่ต้องแสดงก่อนเริ่มเกมอีก")
 	dont_show.position = Vector2(40, 836)
 	dont_show.focus_mode = Control.FOCUS_NONE
 	dont_show.add_theme_font_size_override("font_size", 18)
@@ -101,7 +102,7 @@ func build(button_text: String) -> void:
 	add_child(dont_show)
 
 	var go := Button.new()
-	go.text = button_text
+	go.text = L.t(button_text)
 	go.position = Vector2(1330, 820)
 	go.size = Vector2(230, 66)
 	go.focus_mode = Control.FOCUS_NONE
@@ -116,7 +117,8 @@ func build(button_text: String) -> void:
 func _section(heading: String, lines: Array, y: float) -> float:
 	_text(heading, Vector2(40, y), 26, Vector2(580, 34)).add_theme_color_override("font_color", Color(1, 0.85, 0.45))
 	y += 36.0
-	for line in lines:
+	for raw in lines:
+		var line: String = L.t(raw)
 		var l := _text("•  " + line.replace("\n", "\n    "), Vector2(40, y), 20, Vector2(620, 30))
 		y += 30.0 * (line.count("\n") + 1) + 6.0
 	return y

@@ -7,6 +7,7 @@ extends Node2D
 
 const SpacePhysics := preload("res://scripts/sim/space_physics.gd")
 const Weapons := preload("res://scripts/sim/weapons.gd")
+const L := preload("res://scripts/game/i18n.gd")
 const Terrain := preload("res://scripts/world/terrain.gd")
 const Starfield := preload("res://scripts/world/starfield.gd")
 const Unit := preload("res://scripts/game/unit.gd")
@@ -523,7 +524,7 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		terrain.carve(pos, crater * shot_radius_mult * carve_mult)
 	if w.has("boost"):
 		team_boost[shooter_team] = w.boost
-		_float_text(pos + Vector2(0, -60), "นัดถัดไปแรงขึ้น %d%%" % int(w.boost * 100), Color(0.5, 1.0, 0.6))
+		_float_text(pos + Vector2(0, -60), L.t("นัดถัดไปแรงขึ้น %d%%") % int(w.boost * 100), Color(0.5, 1.0, 0.6))
 	var reach: float = maxf(radius * 1.5, w.get("heal_radius", 0.0))
 	for u in units:
 		if not u.alive:
@@ -532,7 +533,7 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		var d := c.distance_to(pos)
 		if w.has("root_radius") and u.team != shooter_team and d < w.root_radius:
 			u.rooted_turns = 1
-			_float_text(c + Vector2(0, -46), "ติดตาข่าย!", Color(0.6, 0.85, 1.0))
+			_float_text(c + Vector2(0, -46), L.t("ติดตาข่าย!"), Color(0.6, 0.85, 1.0))
 		if d >= reach:
 			continue
 		if w.has("heal") and u.team == shooter_team:
@@ -611,7 +612,7 @@ func _drop_crate() -> void:
 	crate.setup(pos, kind, physics, terrain)
 	add_child(crate)
 	crates.append(crate)
-	_float_text(pos.clamp(Vector2(60, 60), world_size - Vector2(60, 60)), "กล่องเสบียงกำลังตก!", Color(1, 0.85, 0.5))
+	_float_text(pos.clamp(Vector2(60, 60), world_size - Vector2(60, 60)), L.t("กล่องเสบียงกำลังตก!"), Color(1, 0.85, 0.5))
 
 
 func _tick_crates(delta: float) -> void:
@@ -630,7 +631,7 @@ func _tick_crates(delta: float) -> void:
 func _collect(crate, unit) -> void:
 	var id: String = AMMO_LOOT[rng.randi() % AMMO_LOOT.size()]
 	team_ammo[unit.team][id] = team_ammo[unit.team].get(id, 0) + 1
-	var text := "+1 นัด เบอร์ %d %s" % [(Weapons.LIST.find(id) + 1) % 10, Weapons.get_def(id).name]
+	var text := L.t("+1 นัด เบอร์ %d %s") % [(Weapons.LIST.find(id) + 1) % 10, Weapons.get_def(id).name]
 	_float_text(unit.body_center() + Vector2(0, -50), text, Color(0.6, 1.0, 0.6))
 	crates.erase(crate)
 	crate.queue_free()
@@ -638,7 +639,7 @@ func _collect(crate, unit) -> void:
 
 func _on_unit_fell(unit) -> void:
 	var pos: Vector2 = unit.position.clamp(Vector2(40, 40), Vector2(world_size.x - 40, minf(abyss_y, world_size.y) - 30))
-	_float_text(pos, "%s หายไปในอวกาศ!" % unit.unit_name, Color(1, 0.5, 0.5))
+	_float_text(pos, L.t("%s หายไปในอวกาศ!") % unit.unit_name, Color(1, 0.5, 0.5))
 
 
 func _float_text(pos: Vector2, text: String, color: Color) -> void:
@@ -755,13 +756,17 @@ func upcoming_units() -> Array:
 	return round_queue.filter(func(u): return u.alive)
 
 
+func team_name(team: int) -> String:
+	return L.t(TEAM_NAMES[team])
+
+
 func event_text() -> String:
 	var v := absi(_event_value(round_event.get("kind", "")))
 	match round_event.get("kind", ""):
 		"dmg":
-			return "รอบนี้อาวุธ%s %d%%" % ["แรงขึ้น" if round_event.value > 0 else "เบาลง", v]
+			return L.t("รอบนี้อาวุธแรงขึ้น %d%%" if round_event.value > 0 else "รอบนี้อาวุธเบาลง %d%%") % v
 		"time":
-			return "รอบนี้เวลาต่อตา%s %d วินาที" % ["เพิ่มขึ้น" if round_event.value > 0 else "ลดลง", v]
+			return L.t("รอบนี้เวลาต่อตาเพิ่มขึ้น %d วินาที" if round_event.value > 0 else "รอบนี้เวลาต่อตาลดลง %d วินาที") % v
 		"blast":
-			return "รอบนี้วงระเบิด%s %d%%" % ["กว้างขึ้น" if round_event.value > 0 else "แคบลง", v]
+			return L.t("รอบนี้วงระเบิดกว้างขึ้น %d%%" if round_event.value > 0 else "รอบนี้วงระเบิดแคบลง %d%%") % v
 	return ""

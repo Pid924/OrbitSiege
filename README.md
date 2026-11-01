@@ -127,7 +127,9 @@ scripts/game/aim_guide.gd        เส้นนำวิถีกระสุ�
 scripts/game/crate.gd            กล่องเสบียง
 scripts/game/sky_beam.gd         ภาพลำแสง Sky Lance
 assets/weapons/*.png             ภาพอาวุธ (เปลี่ยนเป็นภาพของตัวเองได้ ขนาด 128x128)
-assets/fonts/                    ฟอนต์ Noto Sans + Noto Sans Thai (OFL) ให้เกมแสดงภาษาไทยได้
+assets/fonts/                    ฟอนต์ Noto Sans, Thai, JP, SC (OFL) ตัดเฉพาะตัวที่ใช้
+assets/flags/                    ธงเลือกภาษา (วาดด้วยโค้ด)
+tools/strings.py                 ตารางแปล 6 ภาษา สร้าง i18n_table.gd + ฟอนต์ญี่ปุ่น/จีน
 ```
 
 ## เตรียมไว้สำหรับออนไลน์

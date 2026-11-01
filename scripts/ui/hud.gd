@@ -4,6 +4,7 @@ extends CanvasLayer
 
 const Weapons := preload("res://scripts/sim/weapons.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
+const L := preload("res://scripts/game/i18n.gd")
 const TouchControls := preload("res://scripts/ui/touch_controls.gd")
 
 const CARD_SIZE := Vector2(60, 60)
@@ -57,7 +58,7 @@ func setup(game_ref) -> void:
 	game.round_started.connect(_on_round_started)
 	game.turn_started.connect(_on_turn_started)
 	game.game_over.connect(_on_game_over)
-	stage_label.text = "ด่าน: %s   ·   v%s" % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION]
+	stage_label.text = L.t("ด่าน: %s   ·   v%s") % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION]
 	if touch:
 		touch_controls = TouchControls.new()
 		add_child(touch_controls)
@@ -83,10 +84,10 @@ func _ready() -> void:
 	event_label.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
-	help.text = "ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง = ซูม" if touch else "A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู"
+	help.text = L.t("ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง = ซูม") if touch else L.t("A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู")
 
 	var menu_button := Button.new()
-	menu_button.text = "กลับเมนู"
+	menu_button.text = L.t("กลับเมนู")
 	menu_button.position = Vector2(1340, 30)
 	menu_button.size = Vector2(110, 38)
 	menu_button.focus_mode = Control.FOCUS_NONE
@@ -99,12 +100,12 @@ func _ready() -> void:
 	add_child(menu_button)
 
 	skip_button = Button.new()
-	skip_button.text = "ข้ามตา" if touch else "ข้ามตา (Enter)"
-	skip_button.position = Vector2(1130, 24) if touch else Vector2(1180, 30)
-	skip_button.size = Vector2(150, 64) if touch else Vector2(146, 38)
+	skip_button.text = L.t("ข้ามตา") if touch else L.t("ข้ามตา") + " (Enter)"
+	skip_button.position = Vector2(1100, 24) if touch else Vector2(1130, 30)
+	skip_button.size = Vector2(180, 64) if touch else Vector2(196, 38)
 	skip_button.focus_mode = Control.FOCUS_NONE
 	skip_button.add_theme_font_size_override("font_size", 22 if touch else 16)
-	skip_button.tooltip_text = "จบตานี้เลย ใช้เวลาน้อย = รอบหน้าได้เล่นก่อน"
+	skip_button.tooltip_text = L.t("จบตานี้เลย ใช้เวลาน้อย = รอบหน้าได้เล่นก่อน")
 	skip_button.pressed.connect(func():
 		if game.controllers[0].has_method("skip_turn"):
 			game.controllers[0].skip_turn())
@@ -128,7 +129,7 @@ func _ready() -> void:
 	add_child(banner)
 
 	replay_button = Button.new()
-	replay_button.text = "เล่นอีกครั้ง"
+	replay_button.text = L.t("เล่นอีกครั้ง")
 	replay_button.position = Vector2(640, 540)
 	replay_button.size = Vector2(320, 90)
 	replay_button.focus_mode = Control.FOCUS_NONE
@@ -198,7 +199,7 @@ func _build_weapon_panel() -> void:
 		current_card.pressed.connect(func(): touch_controls.open_picker())
 		panel.add_child(current_card)
 		var swap := Label.new()
-		swap.text = "แตะเปลี่ยน"
+		swap.text = L.t("แตะเปลี่ยน")
 		swap.position = Vector2(0, 74)
 		swap.size = Vector2(94, 18)
 		swap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -259,17 +260,17 @@ func _process(delta: float) -> void:
 		return
 	var u = game.active_unit
 	if u:
-		var who: String = game.TEAM_NAMES[game.current_team]
-		info.text = "รอบ %d  ·  ตาที่ %d  -  %s: %s   %ds" % [game.round_number, game.turn_number, who, u.unit_name, ceili(maxf(game.turn_time_left, 0.0))]
-		var next: Array = game.upcoming_units().map(func(x): return "%s(%s)" % [x.unit_name, game.TEAM_NAMES[x.team]])
-		order_label.text = "ต่อไปในรอบนี้: " + ("  ›  ".join(next) if not next.is_empty() else "จบรอบแล้วขึ้นรอบใหม่")
+		var who: String = game.team_name(game.current_team)
+		info.text = L.t("รอบ %d  ·  ตาที่ %d  -  %s: %s   %ds") % [game.round_number, game.turn_number, who, u.unit_name, ceili(maxf(game.turn_time_left, 0.0))]
+		var next: Array = game.upcoming_units().map(func(x): return "%s(%s)" % [x.unit_name, game.team_name(x.team)])
+		order_label.text = L.t("ต่อไปในรอบนี้: ") + ("  ›  ".join(next) if not next.is_empty() else L.t("จบรอบแล้วขึ้นรอบใหม่"))
 		info.modulate = game.TEAM_COLORS[game.current_team]
 		power_bar.value = u.charge
 	var current: String = game.current_weapon_id()
 	var w := Weapons.get_def(current)
 	weapon_name.text = w.name
 	weapon_stats.text = _stats_text(w)
-	weapon_desc.text = w.desc
+	weapon_desc.text = L.t(w.desc)
 	if current_card:
 		current_card.icon = load(w.icon)
 		_update_weapon_hint(delta)
@@ -280,7 +281,7 @@ func _process(delta: float) -> void:
 		var selected: bool = id == current
 		var left: int = game.ammo_left(view_team, id)
 		var usable: bool = game.weapon_available(view_team, id) if game.current_team == view_team else left != 0
-		ammo_labels[i].text = "ไม่อั้น" if left < 0 else "x%d" % left
+		ammo_labels[i].text = L.t("ไม่อั้น") if left < 0 else "x%d" % left
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
 			ammo_labels[i].text = "HP<=40%"
 		weapon_cards[i].modulate = Color(1, 1, 1) if selected else (Color(0.7, 0.7, 0.75) if usable else Color(0.3, 0.3, 0.35))
@@ -292,14 +293,14 @@ func _process(delta: float) -> void:
 		for unit in game.units:
 			if unit.team == team:
 				hp += unit.hp
-		var line := "%s  เหลือ %d คน  %d HP" % [game.TEAM_NAMES[team], game.alive_count(team), hp]
+		var line := L.t("%s  เหลือ %d คน  %d HP") % [game.team_name(team), game.alive_count(team), hp]
 		if game.team_boost[team] > 0.0:
-			line += "   (+) นัดถัดไปแรงขึ้น %d%%" % int(game.team_boost[team] * 100)
+			line += L.t("   (+) นัดถัดไปแรงขึ้น %d%%") % int(game.team_boost[team] * 100)
 		lines.append(line)
 	teams_label.text = "\n".join(lines)
 	wind_gauge.wind = game.physics.wind
 	wind_gauge.queue_redraw()
-	wind_title.text = "ลมสุริยะ %d" % roundi(game.physics.wind.length())
+	wind_title.text = L.t("ลมสุริยะ %d") % roundi(game.physics.wind.length())
 	if game.phase != game.Phase.GAME_OVER and _banner_time > 0.0:
 		_banner_time -= delta
 		banner.modulate.a = clampf(_banner_time, 0.0, 1.0)
@@ -315,7 +316,7 @@ func _update_weapon_hint(delta: float) -> void:
 	var show: bool = game.is_turn_of(0) and not game.autoplay and ready > 0 and game.team_weapon[0] == 0 \
 		and not touch_controls.picker_opened
 	weapon_hint.visible = show
-	weapon_hint.text = "มีอาวุธพิเศษพร้อมใช้ %d แบบ  ·  แตะรูปอาวุธเพื่อเลือก" % ready
+	weapon_hint.text = L.t("มีอาวุธพิเศษพร้อมใช้ %d แบบ  ·  แตะรูปอาวุธเพื่อเลือก") % ready
 	_hint_pulse += delta
 	var glow := 0.5 + 0.5 * sin(_hint_pulse * 5.0)
 	current_card.modulate = Color(1, 1, 1).lerp(Color(1.6, 1.4, 0.7), glow) if show else Color.WHITE
@@ -324,23 +325,23 @@ func _update_weapon_hint(delta: float) -> void:
 func _stats_text(w: Dictionary) -> String:
 	var parts := []
 	if w.has("heal"):
-		parts.append("ฮีล %d" % w.heal)
-		parts.append("ดาเมจศัตรู %d" % w.damage)
-		parts.append("รัศมี %d" % w.heal_radius)
+		parts.append(L.t("ฮีล %d") % w.heal)
+		parts.append(L.t("ดาเมจศัตรู %d") % w.damage)
+		parts.append(L.t("รัศมี %d") % w.heal_radius)
 	elif w.damage <= 0.0:
-		parts.append("ไม่มีดาเมจ")
-		parts.append("หลุมกว้าง %d" % w.get("carve", w.radius))
+		parts.append(L.t("ไม่มีดาเมจ"))
+		parts.append(L.t("หลุมกว้าง %d") % w.get("carve", w.radius))
 	else:
-		parts.append("ดาเมจ %d" % w.damage)
-		parts.append("รัศมีระเบิด %d" % w.radius)
+		parts.append(L.t("ดาเมจ %d") % w.damage)
+		parts.append(L.t("รัศมีระเบิด %d") % w.radius)
 	if w.has("bomblets"):
-		parts.append("ลูกย่อย %d" % w.bomblets)
+		parts.append(L.t("ลูกย่อย %d") % w.bomblets)
 	if w.has("shots"):
-		parts.append("ยิง %d ครั้ง" % w.shots)
+		parts.append(L.t("ยิง %d ครั้ง") % w.shots)
 	if w.has("spread"):
-		parts.append("%d นัดพร้อมกัน" % w.spread)
+		parts.append(L.t("%d นัดพร้อมกัน") % w.spread)
 	if w.has("root_radius"):
-		parts.append("วงตาข่าย %d" % w.root_radius)
+		parts.append(L.t("วงตาข่าย %d") % w.root_radius)
 	return "   ".join(parts)
 
 
@@ -362,22 +363,22 @@ func _card_style(selected: bool, hover := false) -> StyleBoxFlat:
 func _on_round_started(round_number: int, first_team: int, coin_toss: bool) -> void:
 	if touch_controls:
 		touch_controls.picker_opened = false  # nudge again once per round
-	var who: String = game.TEAM_NAMES[first_team]
+	var who: String = game.team_name(first_team)
 	if coin_toss:
-		_round_text = "รอบ %d   ·   สุ่มแล้ว: %s เริ่มก่อน" % [round_number, who]
+		_round_text = L.t("รอบ %d   ·   สุ่มแล้ว: %s เริ่มก่อน") % [round_number, who]
 	else:
-		_round_text = "รอบ %d   ·   %s เริ่มก่อน (ใช้เวลาน้อยสุด)" % [round_number, who]
+		_round_text = L.t("รอบ %d   ·   %s เริ่มก่อน (ใช้เวลาน้อยสุด)") % [round_number, who]
 
 
 func _on_turn_started(team: int, unit) -> void:
-	banner.text = "%s  -  %s" % [game.TEAM_NAMES[team], unit.unit_name]
+	banner.text = "%s  -  %s" % [game.team_name(team), unit.unit_name]
 	var hold := 1.6
 	if _round_text != "":
 		banner.text = _round_text + "\n" + banner.text
 		_round_text = ""
 		hold = 2.8
 	var ev: String = game.event_text()
-	event_label.text = "เหตุการณ์: " + ev if ev != "" else ""
+	event_label.text = L.t("เหตุการณ์: ") + ev if ev != "" else ""
 	if ev != "" and hold > 2.0:  # the event is announced once, when its round starts
 		banner.text += "\n" + ev
 	banner.modulate = Color(game.TEAM_COLORS[team], 1.0)
@@ -389,11 +390,11 @@ func _on_game_over(winner: int) -> void:
 	if touch_controls:
 		touch_controls.visible = false
 	if winner < 0:
-		banner.text = "เสมอ!   กด R เพื่อเล่นอีกครั้ง"
+		banner.text = L.t("เสมอ!   กด R เพื่อเล่นอีกครั้ง")
 	elif winner == 0:
-		banner.text = "ชนะแล้ว!   กด R เพื่อเล่นอีกครั้ง"
+		banner.text = L.t("ชนะแล้ว!   กด R เพื่อเล่นอีกครั้ง")
 	else:
-		banner.text = "บอทชนะ   กด R เพื่อเล่นอีกครั้ง"
+		banner.text = L.t("บอทชนะ   กด R เพื่อเล่นอีกครั้ง")
 	if touch:
 		banner.text = banner.text.split("   ")[0]
 	banner.modulate = Color.WHITE

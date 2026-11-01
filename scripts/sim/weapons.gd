@@ -66,7 +66,7 @@ const DATA := {
 		"desc": "กระสุนติดตาม บินไปครู่หนึ่งแล้วล็อกศัตรูที่ใกล้ที่สุด เลี้ยวตามไปเองไม่สนแรงโน้มถ่วง ใช้ได้ครั้งเดียว",
 	},
 	"sky": {
-		"name": "Sky Lance", "radius": 0.0, "damage": 60.0, "ammo": 1,
+		"name": "Sky Lance", "radius": 0.0, "damage": 40.0, "ammo": 1,
 		"strike_width": 110.0, "strike_delay": 0.8, "strike_carve": 46.0,
 		"color": Color(1.0, 0.92, 0.6), "icon": "res://assets/weapons/sky.png",
 		"desc": "ยิงลูกบอกพิกัดไปตกตรงไหน ลำแสงจากฟ้าจะยิงลงมาถล่มพื้นตรงนั้นเป็นวงกว้าง ใช้ได้ครั้งเดียว",
