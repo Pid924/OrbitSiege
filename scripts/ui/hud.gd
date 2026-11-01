@@ -30,6 +30,9 @@ var touch_controls: Control
 var current_card: Button
 var replay_button: Button
 var order_label: Label
+var skip_button: Button
+var weapon_hint: Label
+var _hint_pulse := 0.0
 var _round_text := ""
 
 
@@ -94,6 +97,18 @@ func _ready() -> void:
 		menu_button.add_theme_font_size_override("font_size", 22)
 	menu_button.pressed.connect(func(): game.go_to_menu())
 	add_child(menu_button)
+
+	skip_button = Button.new()
+	skip_button.text = "ข้ามตา" if touch else "ข้ามตา (Enter)"
+	skip_button.position = Vector2(1130, 24) if touch else Vector2(1180, 30)
+	skip_button.size = Vector2(150, 64) if touch else Vector2(146, 38)
+	skip_button.focus_mode = Control.FOCUS_NONE
+	skip_button.add_theme_font_size_override("font_size", 22 if touch else 16)
+	skip_button.tooltip_text = "จบตานี้เลย ใช้เวลาน้อย = รอบหน้าได้เล่นก่อน"
+	skip_button.pressed.connect(func():
+		if game.controllers[0].has_method("skip_turn"):
+			game.controllers[0].skip_turn())
+	add_child(skip_button)
 
 	wind_title = _label(Vector2(1470, 14), 13)
 	wind_gauge = WindGauge.new()
@@ -193,6 +208,8 @@ func _build_weapon_panel() -> void:
 		swap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		current_card.add_child(swap)
 		text_x = 114
+		weapon_hint = _label(Vector2(304, 712), 20)
+		weapon_hint.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
 	weapon_name = Label.new()
 	weapon_name.position = Vector2(text_x, 2)
 	weapon_name.add_theme_font_size_override("font_size", 20)
@@ -255,6 +272,8 @@ func _process(delta: float) -> void:
 	weapon_desc.text = w.desc
 	if current_card:
 		current_card.icon = load(w.icon)
+		_update_weapon_hint(delta)
+	skip_button.visible = not game.autoplay and game.is_turn_of(0)
 	var view_team: int = 0 if not game.autoplay else game.current_team
 	for i in weapon_cards.size():
 		var id: String = Weapons.LIST[i]
@@ -284,6 +303,22 @@ func _process(delta: float) -> void:
 	if game.phase != game.Phase.GAME_OVER and _banner_time > 0.0:
 		_banner_time -= delta
 		banner.modulate.a = clampf(_banner_time, 0.0, 1.0)
+
+
+## Phones show only the current weapon, so remind the player the others exist: a pulsing card
+## and a line counting the special weapons ready to use, until they open the picker.
+func _update_weapon_hint(delta: float) -> void:
+	var ready := 0
+	for i in range(1, Weapons.LIST.size()):
+		if game.weapon_available(0, Weapons.LIST[i]):
+			ready += 1
+	var show: bool = game.is_turn_of(0) and not game.autoplay and ready > 0 and game.team_weapon[0] == 0 \
+		and not touch_controls.picker_opened
+	weapon_hint.visible = show
+	weapon_hint.text = "มีอาวุธพิเศษพร้อมใช้ %d แบบ  ·  แตะรูปอาวุธเพื่อเลือก" % ready
+	_hint_pulse += delta
+	var glow := 0.5 + 0.5 * sin(_hint_pulse * 5.0)
+	current_card.modulate = Color(1, 1, 1).lerp(Color(1.6, 1.4, 0.7), glow) if show else Color.WHITE
 
 
 func _stats_text(w: Dictionary) -> String:
@@ -322,6 +357,8 @@ func _card_style(selected: bool, hover := false) -> StyleBoxFlat:
 
 
 func _on_round_started(round_number: int, first_team: int, coin_toss: bool) -> void:
+	if touch_controls:
+		touch_controls.picker_opened = false  # nudge again once per round
 	var who: String = game.TEAM_NAMES[first_team]
 	if coin_toss:
 		_round_text = "รอบ %d   ·   สุ่มแล้ว: %s เริ่มก่อน" % [round_number, who]

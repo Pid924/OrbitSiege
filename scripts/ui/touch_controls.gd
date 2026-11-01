@@ -11,6 +11,7 @@ var picker_cards: Array = []
 var picker_ammo: Array = []
 var fine_button: Button
 var held := 0  # how many on-screen buttons are held
+var picker_opened := false  # this turn; the HUD stops nudging once the player has looked
 
 
 ## A drawn triangle, because the bundled fonts have no arrow glyphs.
@@ -165,6 +166,7 @@ func open_picker() -> void:
 			picker_ammo[i].text = "ใช้ได้เมื่อ HP ไม่เกิน 40%"
 		picker_cards[i].modulate = Color.WHITE if usable else Color(0.4, 0.4, 0.45)
 	picker.visible = true
+	picker_opened = true
 
 
 func _pick(index: int) -> void:

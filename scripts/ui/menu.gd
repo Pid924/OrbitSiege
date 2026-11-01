@@ -3,12 +3,15 @@ extends Node2D
 
 const Starfield := preload("res://scripts/world/starfield.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
+const HowToPlay := preload("res://scripts/ui/how_to_play.gd")
 
 var guide_button: Button
 var bot_button: Button
 var charge_button: Button
 var aim_button: Button
 var touch_button: Button
+var ui: CanvasLayer
+var help_open := false
 
 
 func _ready() -> void:
@@ -19,7 +22,7 @@ func _ready() -> void:
 	add_child(stars)
 	stars.generate(rng)
 
-	var ui := CanvasLayer.new()
+	ui = CanvasLayer.new()
 	add_child(ui)
 	var title := _label("ORBIT SIEGE", Vector2(0, 70), 84)
 	title.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
@@ -52,6 +55,15 @@ func _ready() -> void:
 		_refresh_options())
 	ui.add_child(touch_button)
 	_refresh_options()
+
+	var help := Button.new()
+	help.text = "วิธีเล่น / อาวุธ"
+	help.position = Vector2(24, 24)
+	help.size = Vector2(220, 60)
+	help.focus_mode = Control.FOCUS_NONE
+	help.add_theme_font_size_override("font_size", 22)
+	help.pressed.connect(func(): _show_help("ปิด", ""))
+	ui.add_child(help)
 
 	if OS.has_feature("web"):
 		# Phones: full screen hides the browser bars; Android also locks to landscape.
@@ -135,5 +147,25 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _start(stage_id: String) -> void:
+	if help_open:
+		return
+	if not HowToPlay.seen():
+		_show_help("เริ่มเกม", stage_id)  # explain the game before the first match
+		return
+	_begin(stage_id)
+
+
+func _show_help(button_text: String, stage_id: String) -> void:
+	help_open = true
+	var page := HowToPlay.new()
+	ui.add_child(page)
+	page.build(button_text)
+	page.closed.connect(func():
+		help_open = false
+		if stage_id != "":
+			_begin(stage_id))
+
+
+func _begin(stage_id: String) -> void:
 	GameSettings.stage = stage_id
 	get_tree().change_scene_to_file("res://scenes/main.tscn")

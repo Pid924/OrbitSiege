@@ -299,6 +299,7 @@ func _planet_spots(planets: Array) -> Array:
 ##   {"type": "charge", "team": t, "value": 0..1}      (cosmetic)
 ##   {"type": "weapon", "team": t, "index": int}
 ##   {"type": "fire", "team": t, "angle": float, "power": 0..1}
+##   {"type": "skip", "team": t}                       (end the turn without firing)
 func submit_command(cmd: Dictionary) -> void:
 	command_queue.append(cmd)
 
@@ -349,6 +350,11 @@ func _apply_command(cmd: Dictionary) -> void:
 			var index := posmod(int(cmd.index), Weapons.LIST.size())
 			if weapon_available(current_team, Weapons.LIST[index]):
 				team_weapon[current_team] = index
+		"skip":
+			# Ends the turn now. Less time used = an earlier turn next round.
+			controllers[current_team].end_turn()
+			aim_guide.clear()
+			_begin_settling()
 		"fire":
 			var angle: float = active_unit.aim_angle if active_unit.rooted_turns > 0 else cmd.angle
 			_fire(clampf(angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT), clampf(cmd.power, 0.05, 1.0))

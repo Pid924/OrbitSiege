@@ -73,6 +73,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
+	if event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
+		skip_turn()
+		return
 	var step := 0
 	var index: int = game.team_weapon[team]
 	match event.physical_keycode:
@@ -99,3 +102,9 @@ func cycle_weapon(step: int, index := -1) -> void:
 			break
 		index += step
 	game.submit_command({"type": "weapon", "team": team, "index": index})
+
+
+func skip_turn() -> void:
+	if unit == null or not game.is_turn_of(team) or charging:
+		return
+	game.submit_command({"type": "skip", "team": team})
