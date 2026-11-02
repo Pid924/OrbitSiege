@@ -640,7 +640,8 @@ func _collect(crate, unit) -> void:
 
 func _on_unit_fell(unit) -> void:
 	var pos: Vector2 = unit.position.clamp(Vector2(40, 40), Vector2(world_size.x - 40, minf(abyss_y, world_size.y) - 30))
-	_float_text(pos, L.t("%s หายไปในอวกาศ!") % unit.unit_name, Color(1, 0.5, 0.5))
+	var msg := L.t("%s ตกลงไปในแกนดาว!") if unit.fell_into_core else L.t("%s หายไปในอวกาศ!")
+	_float_text(pos, msg % unit.unit_name, Color(1, 0.5, 0.5))
 
 
 func _float_text(pos: Vector2, text: String, color: Color) -> void:

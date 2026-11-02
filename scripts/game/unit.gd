@@ -22,6 +22,7 @@ var grounded := false
 var up := Vector2.UP
 var is_active := false
 var rooted_turns := 0  # own turns left during which this unit cannot walk
+var fell_into_core := false
 
 var physics
 var terrain
@@ -72,6 +73,15 @@ func tick(dt: float) -> void:
 	if not physics.bounds.has_point(position):
 		fell.emit(self)
 		die()
+		return
+	# Falling through a hole all the way to a planet's core: nothing left to stand on, so it is out
+	# (otherwise point gravity would keep it bobbing around the center forever).
+	for p in physics.planets:
+		if position.distance_to(p.center) < maxf(16.0, p.radius * 0.2):
+			fell_into_core = true
+			fell.emit(self)
+			die()
+			return
 
 
 func _land() -> void:

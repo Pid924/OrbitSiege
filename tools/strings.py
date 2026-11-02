@@ -66,6 +66,7 @@ ROWS = [
 ("ติดตาข่าย!", "Snared!", "Gefangen!", "Gevangen!", "捕獲！", "被困住！"),
 ("กล่องเสบียงกำลังตก!", "Supply crate incoming!", "Nachschubkiste kommt!", "Voorraadkist komt eraan!", "補給箱が落下中！", "补给箱正在落下！"),
 ("+1 นัด เบอร์ %d %s", "+1 ammo: %d %s", "+1 Munition: %d %s", "+1 munitie: %d %s", "弾薬+1: %d %s", "弹药+1: %d %s"),
+("%s ตกลงไปในแกนดาว!", "%s fell into the planet's core!", "%s ist in den Planetenkern gestürzt!", "%s is in de planeetkern gevallen!", "%sは惑星の核に落ちた！", "%s掉进了星球核心！"),
 ("%s หายไปในอวกาศ!", "%s is lost in space!", "%s ist im All verschollen!", "%s is verdwenen in de ruimte!", "%sは宇宙に消えた！", "%s消失在太空中！"),
 ("รอบนี้อาวุธแรงขึ้น %d%%", "This round: weapons +%d%% damage", "Diese Runde: Waffen +%d%% Schaden", "Deze ronde: wapens +%d%% schade", "このラウンド：攻撃力 +%d%%", "本回合：武器伤害 +%d%%"),
 ("รอบนี้อาวุธเบาลง %d%%", "This round: weapons -%d%% damage", "Diese Runde: Waffen -%d%% Schaden", "Deze ronde: wapens -%d%% schade", "このラウンド：攻撃力 -%d%%", "本回合：武器伤害 -%d%%"),
