@@ -4,6 +4,7 @@ extends RefCounted
 ##   ammo         uses per team per match (missing = unlimited)
 ##   shots        fire again with the same aim after the previous shell lands
 ##   spread       number of shells fired at once in a fan, spread_deg apart
+##   min_round    first round in which it may be fired
 ##   hp_ratio_max only usable while the shooter's HP is at or below this ratio
 ##   root_radius  enemies inside cannot walk on their next turn
 ##   heal, heal_radius  heals teammates in range; no crater
@@ -30,9 +31,9 @@ const DATA := {
 		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูก ถ้าโดนตัวศัตรูจัง ๆ แตก 8 ลูก กินพื้นหายไปเยอะ ทำให้ศัตรูร่วงได้",
 	},
 	"driller": {
-		"name": "Void Driller", "radius": 34.0, "carve": 78.0, "damage": 0.0, "ammo": 2,
+		"name": "Void Driller", "radius": 34.0, "carve": 78.0, "damage": 0.0, "ammo": 2, "min_round": 2,
 		"color": Color(0.8, 0.45, 1.0), "drill_time": 0.8, "drill_width": 22.0, "icon": "res://assets/weapons/driller.png",
-		"desc": "ไม่มีดาเมจ เจาะทะลุพื้นเป็นอุโมงค์กว้าง แล้วทลายพื้นเป็นหลุมใหญ่ (รัศมี 78) ทำให้ศัตรูที่ยืนอยู่ร่วงลงไป",
+		"desc": "ไม่มีดาเมจ เจาะทะลุพื้นเป็นอุโมงค์กว้าง แล้วทลายพื้นเป็นหลุมใหญ่ (รัศมี 78) ทำให้ศัตรูร่วง ใช้ได้ตั้งแต่รอบ 2",
 	},
 	"double": {
 		"name": "Twin Strike", "radius": 30.0, "damage": 40.0, "ammo": 2, "shots": 2,

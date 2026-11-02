@@ -284,6 +284,8 @@ func _process(delta: float) -> void:
 		ammo_labels[i].text = L.t("ไม่อั้น") if left < 0 else "x%d" % left
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
 			ammo_labels[i].text = "HP<=40%"
+		elif Weapons.get_def(id).has("min_round") and game.round_number < Weapons.get_def(id).min_round and left != 0:
+			ammo_labels[i].text = L.t("รอบ %d+") % Weapons.get_def(id).min_round
 		weapon_cards[i].modulate = Color(1, 1, 1) if selected else (Color(0.7, 0.7, 0.75) if usable else Color(0.3, 0.3, 0.35))
 		weapon_cards[i].add_theme_stylebox_override("normal", _card_style(selected))
 		weapon_cards[i].add_theme_stylebox_override("hover", _card_style(selected, true))

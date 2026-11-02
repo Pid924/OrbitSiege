@@ -165,6 +165,8 @@ func open_picker() -> void:
 		picker_ammo[i].text = L.t("ไม่จำกัด") if left < 0 else L.t("เหลือ %d") % left
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
 			picker_ammo[i].text = L.t("ใช้ได้เมื่อ HP ไม่เกิน 40%")
+		elif Weapons.get_def(id).has("min_round") and game.round_number < Weapons.get_def(id).min_round and left != 0:
+			picker_ammo[i].text = L.t("ใช้ได้ตั้งแต่รอบ %d") % Weapons.get_def(id).min_round
 		picker_cards[i].modulate = Color.WHITE if usable else Color(0.4, 0.4, 0.45)
 	picker.visible = true
 	picker_opened = true

@@ -28,6 +28,7 @@ enum Phase { AIMING, FLYING, SETTLING, GAME_OVER }
 const TURN_TIME := 30.0
 const UNITS_PER_TEAM := 3
 const PLANET_COUNT := 5
+var planet_radius := Vector2(70, 140)
 const DRIFT_GRAVITY := 260.0
 const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a unit is lost in the gas giant
 const REFIRE_DELAY := 0.35
@@ -60,6 +61,7 @@ var controllers: Array = []
 var carve_mult := 1.0  # stage-wide crater size (brittle ground on Shatter Reef)
 ## Units start at least this far apart, so no single blast (Sky Lance is the widest) hits two at once.
 const MIN_SPAWN_GAP := 250.0
+var spawn_gap := MIN_SPAWN_GAP  # per stage, see GameSettings "spawn_gap"
 var command_queue: Array = []
 
 var phase := Phase.AIMING
@@ -108,6 +110,8 @@ func _ready() -> void:
 
 func _build_world() -> void:
 	var cfg: Dictionary = GameSettings.STAGES[stage]
+	spawn_gap = cfg.get("spawn_gap", MIN_SPAWN_GAP)
+	planet_radius = cfg.get("planet_radius", Vector2(70, 140))
 	world_size = cfg.size
 	carve_mult = cfg.get("carve_mult", 1.0)
 	var stars := Starfield.new()
@@ -135,7 +139,7 @@ func _build_world() -> void:
 			_generate_planets()
 			terrain.generate(physics, rng)
 			spawns = _choose_spawns(_planet_homes())
-		if _min_pair_gap(spawns) >= MIN_SPAWN_GAP:
+		if _min_pair_gap(spawns) >= spawn_gap:
 			break
 	_create_units(spawns)
 
@@ -168,7 +172,7 @@ func _generate_planets() -> void:
 	var tries := 0
 	while (physics.planets.size() < PLANET_COUNT and tries < 2000) or physics.planets.size() < 3:
 		tries += 1
-		var r := rng.randf_range(70.0, 140.0)
+		var r := rng.randf_range(planet_radius.x, planet_radius.y)
 		var c := Vector2(rng.randf_range(r + 50.0, world_size.x - r - 50.0), rng.randf_range(r + 90.0, world_size.y - r - 40.0))
 		var ok := true
 		for p in physics.planets:
@@ -223,7 +227,7 @@ func _choose_spawns(team_spots: Array) -> Array:
 			best.append(team_spots[team][rng.randi() % team_spots[team].size()])
 	var best_gap := _min_pair_gap(best)
 	for attempt in 3000:
-		if best_gap >= MIN_SPAWN_GAP:
+		if best_gap >= spawn_gap:
 			break
 		var k := _closest_unit_index(best)
 		var trial := best.duplicate()
@@ -325,6 +329,8 @@ func weapon_available(team: int, weapon_id: String) -> bool:
 	if ammo_left(team, weapon_id) == 0:
 		return false
 	var w := Weapons.get_def(weapon_id)
+	if round_number < w.get("min_round", 0) and not (GameSettings.debug and team == 0):
+		return false  # e.g. Void Driller: no knocking someone off the map with the very first shot
 	if w.has("hp_ratio_max") and not (GameSettings.debug and team == 0):
 		if active_unit == null or active_unit.team != team:
 			return false
