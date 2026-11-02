@@ -23,15 +23,15 @@ const STAGES := {
 	},
 	"orbit": {
 		"name": "Orbit Field",
-		"desc": "ดาวเคราะห์น้อยหลายดวง ทุกดวงมีแรงโน้มถ่วงของตัวเอง ยิงอ้อมดาวได้",
-		"kind": "planets", "size": Vector2(2300, 1250), "planet_radius": Vector2(100, 175),
+		"desc": "ดาวยักษ์ดวงเดียว แรงโน้มถ่วงดึงเข้าหาใจกลางดาว ยิงโค้งอ้อมดาวไปหาศัตรูอีกฝั่งได้",
+		"kind": "planets", "size": Vector2(2400, 1650), "planet_count": 1, "planet_radius": Vector2(560, 560),
 	},
 }
 const STAGE_ORDER := ["drift", "titan", "orbit", "reef"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
-const VERSION := "1.5.3"
+const VERSION := "1.5.4"
 
 ## [label, seconds to fill the charge bar] for the human player.
 const CHARGE_OPTIONS := [["ช้ามาก", 5.0], ["ช้า", 3.6], ["ปกติ", 2.6], ["เร็ว", 1.6]]

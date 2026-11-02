@@ -5,7 +5,7 @@ config_version=5
 
 config/name="Orbit Siege"
 config/description="Turn-based space artillery prototype."
-config/version="1.5.3"
+config/version="1.5.4"
 config/icon="res://icon.png"
 run/main_scene="res://scenes/menu.tscn"
 config/features=PackedStringArray("4.2", "GL Compatibility")

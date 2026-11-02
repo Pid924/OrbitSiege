@@ -162,7 +162,7 @@ func _paint_planet(p: Dictionary, shape_noise: FastNoiseLite, speck: FastNoiseLi
 			if dist > reach:
 				continue
 			var dir := d / maxf(dist, 0.001)
-			var edge := radius * (1.0 + 0.12 * shape_noise.get_noise_2d(dir.x * 1.6 + offset, dir.y * 1.6))
+			var edge := radius * (1.0 + minf(0.12, 40.0 / radius) * shape_noise.get_noise_2d(dir.x * 1.6 + offset, dir.y * 1.6))
 			if dist > edge:
 				continue
 			var depth := edge - dist

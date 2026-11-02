@@ -28,6 +28,7 @@ enum Phase { AIMING, FLYING, SETTLING, GAME_OVER }
 const TURN_TIME := 30.0
 const UNITS_PER_TEAM := 3
 const PLANET_COUNT := 5
+var planet_count := PLANET_COUNT
 var planet_radius := Vector2(70, 140)
 const DRIFT_GRAVITY := 260.0
 const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a unit is lost in the gas giant
@@ -112,6 +113,7 @@ func _build_world() -> void:
 	var cfg: Dictionary = GameSettings.STAGES[stage]
 	spawn_gap = cfg.get("spawn_gap", MIN_SPAWN_GAP)
 	planet_radius = cfg.get("planet_radius", Vector2(70, 140))
+	planet_count = cfg.get("planet_count", PLANET_COUNT)
 	world_size = cfg.size
 	carve_mult = cfg.get("carve_mult", 1.0)
 	var stars := Starfield.new()
@@ -169,8 +171,12 @@ func _build_world() -> void:
 
 
 func _generate_planets() -> void:
+	if planet_count == 1:
+		# One giant world in the middle; shells curve around it.
+		physics.add_planet(Vector2(world_size.x * 0.5, world_size.y * 0.56), rng.randf_range(planet_radius.x, planet_radius.y))
+		return
 	var tries := 0
-	while (physics.planets.size() < PLANET_COUNT and tries < 2000) or physics.planets.size() < 3:
+	while (physics.planets.size() < planet_count and tries < 2000) or physics.planets.size() < mini(3, planet_count):
 		tries += 1
 		var r := rng.randf_range(planet_radius.x, planet_radius.y)
 		var c := Vector2(rng.randf_range(r + 50.0, world_size.x - r - 50.0), rng.randf_range(r + 90.0, world_size.y - r - 40.0))
@@ -190,6 +196,11 @@ func _planet_homes() -> Array:
 	# With an odd count both teams may use the middle planet, so each has room to spread out.
 	var half := maxi(1, (sorted.size() + 1) / 2)
 	var homes := [sorted.slice(0, half), sorted.slice(sorted.size() - half)]
+	if sorted.size() == 1:
+		# One planet: team 0 on its left side, team 1 on its right side.
+		var center: Vector2 = sorted[0].center
+		var spots := _planet_spots(sorted)
+		return [spots.filter(func(s): return s.x < center.x - 60.0), spots.filter(func(s): return s.x > center.x + 60.0)]
 	return homes.map(func(h): return _planet_spots(h))
 
 
@@ -283,6 +294,8 @@ func _planet_spots(planets: Array) -> Array:
 		var radius: float = planet.radius
 		# Prefer the upper half of the planet, it reads better on screen.
 		var angle := rng.randf_range(-PI * 0.9, -PI * 0.1) if attempt < 60 else rng.randf() * TAU
+		if planets.size() == 1 and planet_count == 1:
+			angle = rng.randf_range(-PI, 0.0)  # giant planet: top half only, so nobody starts under the HUD
 		var dir := Vector2.from_angle(angle)
 		var pos := center + dir * radius * 1.4
 		while not terrain.is_solid(pos - dir) and pos.distance_to(center) > 1.0:
