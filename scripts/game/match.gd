@@ -142,7 +142,7 @@ func _build_world() -> void:
 	for team in 2:
 		for id in Weapons.LIST:
 			var w := Weapons.get_def(id)
-			if w.has("ammo"):
+			if w.has("ammo") and not (GameSettings.debug and team == 0):
 				team_ammo[team][id] = int(w.ammo)
 
 	aim_guide = AimGuide.new()
@@ -325,7 +325,7 @@ func weapon_available(team: int, weapon_id: String) -> bool:
 	if ammo_left(team, weapon_id) == 0:
 		return false
 	var w := Weapons.get_def(weapon_id)
-	if w.has("hp_ratio_max"):
+	if w.has("hp_ratio_max") and not (GameSettings.debug and team == 0):
 		if active_unit == null or active_unit.team != team:
 			return false
 		return float(active_unit.hp) / active_unit.MAX_HP <= w.hp_ratio_max
@@ -630,7 +630,8 @@ func _tick_crates(delta: float) -> void:
 
 func _collect(crate, unit) -> void:
 	var id: String = AMMO_LOOT[rng.randi() % AMMO_LOOT.size()]
-	team_ammo[unit.team][id] = team_ammo[unit.team].get(id, 0) + 1
+	if team_ammo[unit.team].has(id):  # unlimited (debug) stays unlimited
+		team_ammo[unit.team][id] += 1
 	var text := L.t("+1 นัด เบอร์ %d %s") % [(Weapons.LIST.find(id) + 1) % 10, Weapons.get_def(id).name]
 	_float_text(unit.body_center() + Vector2(0, -50), text, Color(0.6, 1.0, 0.6))
 	crates.erase(crate)

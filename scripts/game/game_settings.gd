@@ -31,7 +31,7 @@ const STAGE_ORDER := ["drift", "titan", "orbit", "reef"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
-const VERSION := "1.5.0"
+const VERSION := "1.5.1"
 
 ## [label, seconds to fill the charge bar] for the human player.
 const CHARGE_OPTIONS := [["ช้ามาก", 5.0], ["ช้า", 3.6], ["ปกติ", 2.6], ["เร็ว", 1.6]]
@@ -48,6 +48,8 @@ static var aim_speed := 0  # slowest
 ## On-screen touch controls: auto (touchscreen detected), always on, off.
 const TOUCH_OPTIONS := ["อัตโนมัติ", "เปิด", "ปิด"]
 static var touch_ui := 0
+## Secret test mode (flag code in the menu): the player team has unlimited ammo and Last Stand at any HP.
+static var debug := false
 
 
 static func use_touch() -> bool:

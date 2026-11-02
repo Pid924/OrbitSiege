@@ -58,7 +58,7 @@ func setup(game_ref) -> void:
 	game.round_started.connect(_on_round_started)
 	game.turn_started.connect(_on_turn_started)
 	game.game_over.connect(_on_game_over)
-	stage_label.text = L.t("ด่าน: %s   ·   v%s") % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION]
+	stage_label.text = L.t("ด่าน: %s   ·   v%s") % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION] + ("   ·   DEBUG" if GameSettings.debug else "")
 	if touch:
 		touch_controls = TouchControls.new()
 		add_child(touch_controls)

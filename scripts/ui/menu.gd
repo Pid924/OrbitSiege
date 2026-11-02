@@ -14,6 +14,10 @@ var touch_button: Button
 var ui: CanvasLayer
 var help_open := false
 
+## Flag taps in this order switch debug mode on or off: Thai Dutch Thai German, twice.
+const DEBUG_CODE := ["th", "nl", "th", "de", "th", "nl", "th", "de"]
+static var flag_taps: Array = []
+
 
 func _ready() -> void:
 	ThemeDB.fallback_font = preload("res://assets/fonts/ui_font.tres")
@@ -105,7 +109,7 @@ func _ready() -> void:
 		if i == 0:
 			b.grab_focus()
 	ui.add_child(_label(L.t("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม") % GameSettings.STAGE_ORDER.size(), Vector2(0, 708), 16))
-	var version := _label("v%s" % GameSettings.VERSION, Vector2(0, 860), 14)
+	var version := _label("v%s" % GameSettings.VERSION + ("  ·  DEBUG" if GameSettings.debug else ""), Vector2(0, 860), 14)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	version.size.x = 1580
 	version.modulate = Color(1, 1, 1, 0.6)
@@ -141,7 +145,14 @@ func _build_flags() -> void:
 		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(img)
 		b.pressed.connect(func():
-			if code != L.lang:
+			flag_taps.append(code)
+			if flag_taps.size() > DEBUG_CODE.size():
+				flag_taps.pop_front()
+			var toggled := flag_taps == DEBUG_CODE
+			if toggled:
+				GameSettings.debug = not GameSettings.debug
+				flag_taps.clear()
+			if toggled or code != L.lang:
 				L.set_lang(code)
 				get_tree().reload_current_scene())
 		ui.add_child(b)
