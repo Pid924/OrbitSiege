@@ -96,6 +96,10 @@ func _physics_process(delta: float) -> void:
 		State.SEARCH:
 			_search_step()
 		State.AIM:
+			var want_side := 1 if best_angle > 0.0 else -1
+			if want_side != game.aim_side(unit) and unit.rooted_turns == 0:
+				game.submit_command({"type": "face", "team": team, "dir": want_side})
+				return
 			var diff: float = best_angle - unit.aim_angle
 			var step := AIM_SPEED * delta
 			if absf(diff) <= step:
@@ -116,6 +120,8 @@ func _search_step() -> void:
 	var targets: PackedVector2Array = game.unit_hit_points()
 	while not candidates.is_empty() and Time.get_ticks_usec() - start < FRAME_BUDGET_USEC:
 		var c: Array = candidates.pop_back()
+		if unit.rooted_turns == 0:
+			c[0] = _legal(c[0])
 		var score := _score_shot(c[0], c[1], targets)
 		if score < best_score:
 			best_score = score
@@ -141,7 +147,14 @@ func _search_step() -> void:
 	else:
 		best_angle += deg_to_rad(rng.randfn(0.0, angle_error_deg))
 	best_power = clampf(best_power + rng.randfn(0.0, power_error), 0.05, 1.0)
+	if unit.rooted_turns == 0:
+		best_angle = _legal(best_angle)
 	state = State.AIM
+
+
+## The same angle moved inside the current weapon's elevation range, keeping its side.
+func _legal(angle: float) -> float:
+	return game.clamp_aim(angle, 1 if angle > 0.0 else -1)
 
 
 func _score_shot(angle: float, power: float, targets: PackedVector2Array) -> float:

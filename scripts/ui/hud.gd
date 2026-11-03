@@ -6,6 +6,7 @@ const Weapons := preload("res://scripts/sim/weapons.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 const L := preload("res://scripts/game/i18n.gd")
 const TouchControls := preload("res://scripts/ui/touch_controls.gd")
+const PauseMenu := preload("res://scripts/ui/pause_menu.gd")
 
 const CARD_SIZE := Vector2(60, 60)
 const PANEL_WIDTH := 1160.0
@@ -32,6 +33,7 @@ var current_card: Button
 var replay_button: Button
 var order_label: Label
 var skip_button: Button
+var pause_menu
 var weapon_hint: Label
 var _hint_pulse := 0.0
 var _round_text := ""
@@ -59,6 +61,7 @@ func setup(game_ref) -> void:
 	game.turn_started.connect(_on_turn_started)
 	game.game_over.connect(_on_game_over)
 	stage_label.text = L.t("ด่าน: %s   ·   v%s") % [GameSettings.STAGES[game.stage].name, GameSettings.VERSION] + ("   ·   DEBUG" if GameSettings.debug else "")
+	pause_menu.setup(game)
 	if touch:
 		touch_controls = TouchControls.new()
 		add_child(touch_controls)
@@ -84,10 +87,11 @@ func _ready() -> void:
 	event_label.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
-	help.text = L.t("ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง = ซูม") if touch else L.t("A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   Esc = เมนู")
+	help.text = L.t("ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง = ซูม") if touch else L.t("A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   P = หยุด   Esc = เมนู")
 
+	# Pause instead of a direct menu button: the menu is one tap away on the pause screen.
 	var menu_button := Button.new()
-	menu_button.text = L.t("กลับเมนู")
+	menu_button.text = L.t("หยุด") if touch else L.t("หยุด") + " (P)"
 	menu_button.position = Vector2(1340, 30)
 	menu_button.size = Vector2(110, 38)
 	menu_button.focus_mode = Control.FOCUS_NONE
@@ -96,7 +100,7 @@ func _ready() -> void:
 		menu_button.position = Vector2(1300, 24)
 		menu_button.size = Vector2(150, 64)
 		menu_button.add_theme_font_size_override("font_size", 22)
-	menu_button.pressed.connect(func(): game.go_to_menu())
+	menu_button.pressed.connect(func(): pause_menu.set_paused(true))
 	add_child(menu_button)
 
 	skip_button = Button.new()
@@ -137,6 +141,9 @@ func _ready() -> void:
 	replay_button.visible = false
 	replay_button.pressed.connect(func(): get_tree().reload_current_scene())
 	add_child(replay_button)
+
+	pause_menu = PauseMenu.new()
+	add_child(pause_menu)
 
 
 func _build_weapon_panel() -> void:
@@ -336,6 +343,8 @@ func _stats_text(w: Dictionary) -> String:
 	else:
 		parts.append(L.t("ดาเมจ %d") % w.damage)
 		parts.append(L.t("รัศมีระเบิด %d") % w.radius)
+	if w.has("elev"):
+		parts.append(L.t("มุม %d°-%d°") % [int(w.elev.x), int(w.elev.y)])
 	if w.has("bomblets"):
 		parts.append(L.t("ลูกย่อย %d") % w.bomblets)
 	if w.has("shots"):

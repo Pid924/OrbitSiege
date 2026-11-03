@@ -23,6 +23,7 @@ var up := Vector2.UP
 var is_active := false
 var rooted_turns := 0  # own turns left during which this unit cannot walk
 var fell_into_core := false
+var aim_range := Vector2(-70, 90)  # elevation limits of the current weapon, for drawing
 
 var physics
 var terrain
@@ -156,6 +157,13 @@ func _draw() -> void:
 	var local_aim := Vector2.UP.rotated(aim_angle)
 	if is_active:
 		# Aim guide grows with the charge so the player can read the power.
+		# Faint fan showing the angles this weapon allows on the side the barrel faces.
+		var side := 1.0 if aim_angle >= 0.0 else -1.0
+		var a0 := deg_to_rad(90.0 - aim_range.y) * side
+		var a1 := deg_to_rad(90.0 - aim_range.x) * side
+		for a in [a0, a1]:
+			draw_line(Vector2(0, -10), Vector2(0, -10) + Vector2.UP.rotated(a) * 30.0, Color(1, 1, 1, 0.3), 1.0)
+		draw_arc(Vector2(0, -10), 26.0, minf(a0, a1) - PI / 2.0, maxf(a0, a1) - PI / 2.0, 16, Color(1, 1, 1, 0.22), 1.5)
 		var guide_len := 30.0 + charge * 70.0
 		for k in 6:
 			var a := Vector2(0, -10) + local_aim * (16.0 + guide_len * k / 6.0)

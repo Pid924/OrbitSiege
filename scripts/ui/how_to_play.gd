@@ -57,6 +57,7 @@ func build(button_text: String) -> void:
 		"ขยับไม่ได้หรือไม่อยากยิง กด \"ข้ามตา\"\nใช้เวลาน้อย รอบหน้าได้เล่นก่อน",
 		"จบทุกรอบมีกล่องเสบียงตก เก็บได้กระสุนพิเศษ +1",
 		"บางรอบมีเหตุการณ์สุ่ม: อาวุธแรงขึ้น/เบาลง\nเวลาเพิ่ม/ลด วงระเบิดกว้างขึ้น/แคบลง",
+		"อาวุธแต่ละแบบเล็งได้ในช่วงองศาของตัวเอง\nเดินซ้าย/ขวาเพื่อหันปืนไปอีกฝั่ง",
 		"ยิงพื้นใต้เท้าศัตรูให้ร่วงลงไปก็ชนะได้",
 	]
 	var controls := [
@@ -69,7 +70,7 @@ func build(button_text: String) -> void:
 		"A / D = เดิน   W / S = หมุนปืน (Shift = ละเอียด)",
 		"Space กดค้าง = ชาร์จ  ปล่อย = ยิง",
 		"1-9, 0, Q / E หรือคลิกการ์ด = เลือกอาวุธ",
-		"Enter = ข้ามตา   ล้อเมาส์ = ซูม",
+		"Enter = ข้ามตา   P = หยุด   ล้อเมาส์ = ซูม",
 	]
 	var y := 84.0
 	y = _section(L.t("กติกา"), rules, y)
@@ -88,7 +89,8 @@ func build(button_text: String) -> void:
 		add_child(icon)
 		var uses := L.t("ใช้ได้ไม่จำกัด") if not w.has("ammo") else L.t("%d ครั้งต่อเกม") % int(w.ammo)
 		var dmg := L.t("ไม่มีดาเมจ") if w.damage <= 0.0 else L.t("ดาเมจ %d") % int(w.damage)
-		var head := _text("%d. %s   ·   %s   ·   %s" % [(i + 1) % 10, w.name, dmg, uses], Vector2(746, row_y - 4), 19, Vector2(830, 26))
+		var angle := L.t("มุม %d°-%d°") % [int(w.elev.x), int(w.elev.y)] if w.has("elev") else ""
+		var head := _text("%d. %s  ·  %s  ·  %s  ·  %s" % [(i + 1) % 10, w.name, dmg, uses, angle], Vector2(746, row_y - 4), 19, Vector2(830, 26))
 		head.add_theme_color_override("font_color", w.color.lightened(0.3))
 		var desc := _text(L.t(TIPS.get(Weapons.LIST[i], w.desc)), Vector2(746, row_y + 24), 16, Vector2(830, 26))
 		desc.modulate = Color(1, 1, 1, 0.85)

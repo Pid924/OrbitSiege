@@ -57,7 +57,7 @@ func _physics_process(delta: float) -> void:
 		var speed: float = GameSettings.AIM_OPTIONS[GameSettings.aim_speed][1]
 		if Input.is_physical_key_pressed(KEY_SHIFT) or touch_fine:
 			speed *= 0.25
-		game.submit_command({"type": "aim", "team": team, "angle": unit.aim_angle + aim * speed * delta})
+		game.submit_command({"type": "aim", "team": team, "angle": unit.aim_angle + aim * speed * delta * game.aim_side(unit)})
 
 	if Input.is_physical_key_pressed(KEY_SPACE) or touch_fire:
 		charging = true

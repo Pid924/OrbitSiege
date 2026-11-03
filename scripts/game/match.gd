@@ -351,7 +351,12 @@ func weapon_available(team: int, weapon_id: String) -> bool:
 	return true
 
 
+func is_over() -> bool:
+	return phase == Phase.GAME_OVER
+
+
 func go_to_menu() -> void:
+	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/menu.tscn")
 
 
@@ -360,10 +365,13 @@ func _apply_command(cmd: Dictionary) -> void:
 		return
 	match cmd.get("type", ""):
 		"walk":
+			_face(int(cmd.dir))
 			active_unit.walk(int(cmd.dir), 1.0 / 60.0)
+		"face":
+			_face(int(cmd.dir))
 		"aim":
 			if active_unit.rooted_turns == 0:  # Stasis Net also locks the barrel
-				active_unit.aim_angle = clampf(cmd.angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT)
+				active_unit.aim_angle = clamp_aim(cmd.angle, aim_side(active_unit))
 		"charge":
 			active_unit.charge = clampf(cmd.value, 0.0, 1.0)
 		"weapon":
@@ -377,7 +385,7 @@ func _apply_command(cmd: Dictionary) -> void:
 			_begin_settling()
 		"fire":
 			var angle: float = active_unit.aim_angle if active_unit.rooted_turns > 0 else cmd.angle
-			_fire(clampf(angle, -Unit.AIM_LIMIT, Unit.AIM_LIMIT), clampf(cmd.power, 0.05, 1.0))
+			_fire(angle, clampf(cmd.power, 0.05, 1.0))
 
 
 func _fire(angle: float, power: float) -> void:
@@ -388,6 +396,8 @@ func _fire(angle: float, power: float) -> void:
 	if team_ammo[current_team].has(weapon):
 		team_ammo[current_team][weapon] -= 1
 	var w := Weapons.get_def(weapon)
+	angle = clamp_aim(angle, aim_side(active_unit), weapon)
+	active_unit.aim_angle = angle
 	active_unit.charge = 0.0
 	last_power[active_unit.unit_id] = power
 	last_shot = {"angle": angle, "power": power, "weapon": weapon}
@@ -431,6 +441,12 @@ func _physics_process(delta: float) -> void:
 	for u in units:
 		u.tick(delta)
 	_tick_crates(delta)
+	if phase == Phase.AIMING and active_unit and active_unit.alive:
+		# Weapon switches can change the allowed range; the barrel snaps into it.
+		var r := aim_range()
+		active_unit.aim_range = r
+		if active_unit.rooted_turns == 0:
+			active_unit.aim_angle = clamp_aim(active_unit.aim_angle, aim_side(active_unit))
 	match phase:
 		Phase.AIMING:
 			turn_time_left -= delta
@@ -775,6 +791,37 @@ func _start_turn() -> void:
 ## Units still to play this round, after the active one.
 func upcoming_units() -> Array:
 	return round_queue.filter(func(u): return u.alive)
+
+
+## Which way the barrel points: 1 = to the unit's right, -1 = to its left.
+func aim_side(unit) -> int:
+	if absf(unit.aim_angle) > 0.001:
+		return 1 if unit.aim_angle > 0.0 else -1
+	return 1 if unit.team == 0 else -1
+
+
+## Elevation range of a weapon in degrees above the ground, see Weapons "elev".
+func aim_range(weapon_id := "") -> Vector2:
+	if weapon_id == "":
+		weapon_id = current_weapon_id()
+	return Weapons.get_def(weapon_id).get("elev", Vector2(-70, 90))
+
+
+## Keeps an aim angle (radians from local up) inside the weapon's elevation range, on `side`.
+func clamp_aim(angle: float, side: int, weapon_id := "") -> float:
+	var r := aim_range(weapon_id)
+	var from_up := clampf(rad_to_deg(absf(angle)), 90.0 - r.y, 90.0 - r.x)
+	if (angle > 0.0) != (side > 0) and absf(angle) > 0.001:
+		from_up = 90.0 - r.y  # crossed over the top: stay at the steepest allowed angle on this side
+	return side * deg_to_rad(minf(from_up, rad_to_deg(Unit.AIM_LIMIT)))
+
+
+## Walking (or the bot's "face" command) turns the barrel to that side, mirrored.
+func _face(dir: int) -> void:
+	if dir == 0 or active_unit.rooted_turns > 0:
+		return
+	if dir != aim_side(active_unit):
+		active_unit.aim_angle = clamp_aim(-active_unit.aim_angle if absf(active_unit.aim_angle) > 0.001 else dir * 0.6, dir)
 
 
 func team_name(team: int) -> String:
