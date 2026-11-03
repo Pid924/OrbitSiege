@@ -443,8 +443,9 @@ func _physics_process(delta: float) -> void:
 	_tick_crates(delta)
 	if phase == Phase.AIMING and active_unit and active_unit.alive:
 		# Weapon switches can change the allowed range; the barrel snaps into it.
-		var r := aim_range()
-		active_unit.aim_range = r
+		if active_unit.grounded:
+			active_unit.tilt = active_unit.ground_tilt()
+		active_unit.aim_range = level_range(aim_side(active_unit))
 		if active_unit.rooted_turns == 0:
 			active_unit.aim_angle = clamp_aim(active_unit.aim_angle, aim_side(active_unit))
 	match phase:
@@ -773,6 +774,9 @@ func _start_turn() -> void:
 	current_team = active_unit.team
 	physics.wind = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, MAX_WIND)
 	active_unit.is_active = true
+	active_unit.tilt = active_unit.ground_tilt()
+	if active_unit.rooted_turns == 0:
+		active_unit.aim_angle = clamp_aim(active_unit.aim_angle, aim_side(active_unit))
 	if not weapon_available(current_team, current_weapon_id()):
 		team_weapon[current_team] = 0
 	shots_left = 0
@@ -800,16 +804,24 @@ func aim_side(unit) -> int:
 	return 1 if unit.team == 0 else -1
 
 
-## Elevation range of a weapon in degrees above the ground, see Weapons "elev".
+## Elevation range of a weapon in degrees above the ground it stands on, see Weapons "elev".
 func aim_range(weapon_id := "") -> Vector2:
 	if weapon_id == "":
 		weapon_id = current_weapon_id()
 	return Weapons.get_def(weapon_id).get("elev", Vector2(-70, 90))
 
 
-## Keeps an aim angle (radians from local up) inside the weapon's elevation range, on `side`.
-func clamp_aim(angle: float, side: int, weapon_id := "") -> float:
+## The weapon's range measured from the ground the active unit stands on, turned into degrees
+## above level for the side it faces: on a slope rising 20 degrees ahead, 0-45 becomes 20-65.
+func level_range(side: int, weapon_id := "") -> Vector2:
 	var r := aim_range(weapon_id)
+	var t: float = active_unit.tilt * side if active_unit else 0.0
+	return Vector2(maxf(r.x + t, -70.0), minf(r.y + t, 90.0))
+
+
+## Keeps an aim angle (radians from local up) inside the weapon's range on `side`.
+func clamp_aim(angle: float, side: int, weapon_id := "") -> float:
+	var r := level_range(side, weapon_id)
 	var from_up := clampf(rad_to_deg(absf(angle)), 90.0 - r.y, 90.0 - r.x)
 	if (angle > 0.0) != (side > 0) and absf(angle) > 0.001:
 		from_up = 90.0 - r.y  # crossed over the top: stay at the steepest allowed angle on this side

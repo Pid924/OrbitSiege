@@ -23,7 +23,8 @@ var up := Vector2.UP
 var is_active := false
 var rooted_turns := 0  # own turns left during which this unit cannot walk
 var fell_into_core := false
-var aim_range := Vector2(-70, 90)  # elevation limits of the current weapon, for drawing
+var aim_range := Vector2(-70, 90)  # allowed elevation above level (weapon range + ground tilt), for drawing
+var tilt := 0.0  # degrees the ground rises toward the unit's local right, see ground_tilt()
 
 var physics
 var terrain
@@ -114,6 +115,26 @@ func walk(dir: int, dt: float) -> void:
 		position -= up
 	# No ground within a safe drop: stop at the edge instead of walking off.
 	position = start
+
+
+## Slope of the ground under the feet in degrees, relative to local level (perpendicular to "up").
+## Positive when the ground rises toward the unit's right.
+func ground_tilt() -> float:
+	if not grounded:
+		return 0.0
+	var tangent := Vector2(-up.y, up.x)
+	var reach := 16.0
+	var heights := []
+	for d in [-reach, reach]:
+		var h := 0.0
+		var found := false
+		for k in range(24, -25, -1):  # scan down from above the feet
+			if terrain.is_solid(position + tangent * d + up * (k - 1)):
+				h = k
+				found = true
+				break
+		heights.append(h if found else -24.0)
+	return clampf(rad_to_deg(atan2(heights[1] - heights[0], reach * 2.0) ), -35.0, 35.0)
 
 
 func heal(amount: int) -> int:
