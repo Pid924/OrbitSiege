@@ -87,18 +87,18 @@ func _ready() -> void:
 		var id: String = GameSettings.STAGE_ORDER[i]
 		var stage: Dictionary = GameSettings.STAGES[id]
 		var b := Button.new()
-		b.position = Vector2(400, 314 + i * 96)
-		b.size = Vector2(800, 88)
+		b.position = Vector2(400, 312 + i * 84)
+		b.size = Vector2(800, 78)
 		b.pressed.connect(_start.bind(id))
 		var heading := Label.new()
 		heading.text = L.t("ด่าน %d: %s") % [i + 1, stage.name]
-		heading.position = Vector2(24, 4)
+		heading.position = Vector2(24, 2)
 		heading.add_theme_font_size_override("font_size", 26)
 		heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(heading)
 		var desc := Label.new()
 		desc.text = L.t(stage.desc)
-		desc.position = Vector2(24, 44)
+		desc.position = Vector2(24, 40)
 		desc.size = Vector2(752, 40)
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc.add_theme_font_size_override("font_size", 16)
@@ -108,7 +108,7 @@ func _ready() -> void:
 		ui.add_child(b)
 		if i == 0:
 			b.grab_focus()
-	ui.add_child(_label(L.t("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม") % GameSettings.STAGE_ORDER.size(), Vector2(0, 708), 16))
+	ui.add_child(_label(L.t("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม") % GameSettings.STAGE_ORDER.size(), Vector2(0, 738), 16))
 	var version := _label("v%s" % GameSettings.VERSION + ("  ·  DEBUG" if GameSettings.debug else ""), Vector2(0, 860), 14)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	version.size.x = 1580

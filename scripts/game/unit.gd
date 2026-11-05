@@ -210,10 +210,13 @@ func _draw() -> void:
 	# Screen-aligned label and HP bar above the head.
 	var font := ThemeDB.fallback_font
 	var head := up * 36.0
-	var bar := Rect2(head + Vector2(-16, 0), Vector2(32, 4))
-	draw_rect(bar, Color(0, 0, 0, 0.6))
-	draw_rect(Rect2(bar.position, Vector2(32.0 * hp / MAX_HP, 4)), color)
-	draw_string(font, head + Vector2(-30, -4), "%s %d" % [unit_name, hp], HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(1, 1, 1, 0.9))
+	var bar := Rect2(head + Vector2(-20, 0), Vector2(40, 6))
+	var fill := float(hp) / MAX_HP
+	var bar_color := color if fill > 0.4 else color.lerp(Color(1.0, 0.85, 0.3), 0.5)
+	draw_rect(bar, Color(0, 0, 0, 0.65))
+	draw_rect(Rect2(bar.position, Vector2(40.0 * fill, 6)), bar_color)
+	draw_rect(bar, Color(1, 1, 1, 0.4), false, 1.0)
+	draw_string(font, head + Vector2(-30, -4), unit_name, HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(1, 1, 1, 0.9))
 	if is_active:
 		var y := -14.0 + sin(_bob * 5.0) * 3.0
 		var tip := head + Vector2(0, y)

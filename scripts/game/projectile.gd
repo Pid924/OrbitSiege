@@ -65,7 +65,11 @@ func tick(dt: float) -> void:
 ## Turns toward the locked target. Returns false when there is nothing to chase.
 func _steer(w: Dictionary, h: float) -> bool:
 	if homing_target == null or not homing_target.alive:
-		homing_target = game.nearest_enemy(position, game.current_team)
+		# Flies like a normal shell until an enemy comes within lock range.
+		homing_target = null
+		var near = game.nearest_enemy(position, game.current_team)
+		if near and near.body_center().distance_to(position) <= w.get("lock_range", INF):
+			homing_target = near
 	if homing_target == null:
 		return false
 	var speed := maxf(vel.length(), 420.0)

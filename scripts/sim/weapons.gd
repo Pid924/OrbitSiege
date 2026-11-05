@@ -63,9 +63,9 @@ const DATA := {
 	},
 	"seeker": {
 		"name": "Hunter Seeker", "radius": 34.0, "damage": 40.0, "ammo": 1, "elev": Vector2(0, 90),
-		"homing": true, "homing_delay": 0.45, "turn_rate": 3.2,
+		"homing": true, "homing_delay": 0.45, "turn_rate": 3.2, "lock_range": 300.0,
 		"color": Color(1.0, 0.45, 0.85), "icon": "res://assets/weapons/seeker.png",
-		"desc": "กระสุนติดตาม บินไปครู่หนึ่งแล้วล็อกศัตรูที่ใกล้ที่สุด เลี้ยวตามไปเองไม่สนแรงโน้มถ่วง ใช้ได้ครั้งเดียว",
+		"desc": "กระสุนติดตาม บินตามวิถีปกติจนมีศัตรูอยู่ในระยะ 300 แล้วล็อกเป้า เลี้ยวตามไปเองไม่สนแรงโน้มถ่วง ใช้ได้ครั้งเดียว",
 	},
 	"sky": {
 		"name": "Sky Lance", "radius": 0.0, "damage": 40.0, "ammo": 1, "elev": Vector2(30, 90),

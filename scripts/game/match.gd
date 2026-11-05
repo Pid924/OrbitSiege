@@ -217,6 +217,12 @@ func _island_spots(islands: Array) -> Array:
 		var island: Dictionary = islands[rng.randi() % islands.size()]
 		var x := rng.randf_range(lerpf(island.x0, island.x1, 0.08), lerpf(island.x0, island.x1, 0.92))
 		var pos := Vector2(x, island.base - 80.0)  # island tops never rise above base - 70
+		if island.has("steps"):
+			pos.y = island.base - island.max_lift - 40.0
+			if not island.edges.is_empty() and rng.randf() < 0.45:
+				# Right on the brink of a cliff, on the high side.
+				var e: Vector2 = island.edges[rng.randi() % island.edges.size()]
+				pos.x = e.x + e.y * rng.randf_range(8.0, 16.0)
 		while pos.y < abyss_y and not terrain.is_solid(pos + Vector2.DOWN):
 			pos.y += 1.0
 		if pos.y < abyss_y:

@@ -21,17 +21,24 @@ const STAGES := {
 		"island_width": Vector2(300, 440), "gap": Vector2(60, 110), "depth": Vector2(40, 70),
 		"carve_mult": 1.25, "sky_rocks": 2, "spawn_gap": 300.0,
 	},
+	"cliffs": {
+		"name": "Iron Cliffs",
+		"desc": "แผ่นดินหนามาก เป็นขั้นบันไดหน้าผาสูงชัน ยิงทะลุยาก บางตัวเกิดอยู่ริมหน้าผา",
+		"kind": "islands", "size": Vector2(2800, 1500),
+		"island_width": Vector2(900, 1300), "gap": Vector2(70, 120), "depth": Vector2(480, 600),
+		"terrace": Vector2(170, 300), "terrace_lift": 260.0,
+	},
 	"orbit": {
 		"name": "Orbit Field",
 		"desc": "ดาวยักษ์ดวงเดียว แรงโน้มถ่วงดึงเข้าหาใจกลางดาว ยิงโค้งอ้อมดาวไปหาศัตรูอีกฝั่งได้",
 		"kind": "planets", "size": Vector2(2400, 1650), "planet_count": 1, "planet_radius": Vector2(560, 560),
 	},
 }
-const STAGE_ORDER := ["drift", "titan", "orbit", "reef"]
+const STAGE_ORDER := ["drift", "titan", "orbit", "reef", "cliffs"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
-const VERSION := "1.6.1"
+const VERSION := "1.7.0"
 
 ## [label, seconds to fill the charge bar] for the human player.
 const CHARGE_OPTIONS := [["ช้ามาก", 5.0], ["ช้า", 3.6], ["ปกติ", 2.6], ["เร็ว", 1.6]]

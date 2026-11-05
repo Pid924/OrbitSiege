@@ -58,6 +58,8 @@ func generate_islands(rng: RandomNumberGenerator, cfg: Dictionary) -> Array:
 			"base": rng.randf_range(0.36, 0.5) * height,
 			"depth": rng.randf_range(depth.x, depth.y),
 		}
+		if cfg.has("terrace"):
+			_add_terraces(island, rng, cfg)
 		_paint_island(island, surface, jag, speck, PALETTES[palette_index % PALETTES.size()])
 		islands.append(island)
 		x += w + rng.randf_range(gap.x, gap.y)
@@ -104,17 +106,56 @@ func _speck_noise(rng: RandomNumberGenerator) -> FastNoiseLite:
 	return speck
 
 
+## Splits an island's top into flat steps at different heights with sheer cliffs between them.
+## island.steps = [[x0, x1, lift], ...]; island.edges = cliff tops [Vector2(x, side)] where side
+## points from the cliff toward the higher step (spawns use these to start units on the brink).
+func _add_terraces(island: Dictionary, rng: RandomNumberGenerator, cfg: Dictionary) -> void:
+	var widths: Vector2 = cfg.terrace
+	var max_lift: float = cfg.terrace_lift
+	var steps := []
+	var edges := []
+	var x: float = island.x0
+	var lift := rng.randf_range(0.0, max_lift)
+	while x < island.x1:
+		var w := rng.randf_range(widths.x, widths.y)
+		if island.x1 - (x + w) < widths.x:
+			w = island.x1 - x
+		steps.append([x, x + w, lift])
+		x += w
+		var next := rng.randf_range(0.0, max_lift)
+		if absf(next - lift) < 90.0:  # always a real cliff, never a gentle step
+			next = lift + 120.0 if lift + 120.0 <= max_lift else lift - 120.0
+		if x < island.x1:
+			edges.append(Vector2(x, -1 if lift > next else 1))
+		lift = next
+	island.steps = steps
+	island.edges = edges
+	island.max_lift = max_lift
+
+
+func _step_lift(island: Dictionary, x: float) -> float:
+	for s in island.steps:
+		if x >= s[0] and x < s[1]:
+			return s[2]
+	return island.steps[-1][2]
+
+
 func _paint_island(island: Dictionary, surface: FastNoiseLite, jag: FastNoiseLite, speck: FastNoiseLite, palette: Array) -> void:
 	var x0: float = island.x0
 	var x1: float = island.x1
 	var half := (x1 - x0) / 2.0
 	var cx := x0 + half
+	var terraced := island.has("steps")
 	for x in range(int(x0), int(x1) + 1):
 		var t := (x - cx) / half
 		var edge := clampf(1.0 - t * t, 0.0, 1.0)
 		# Flat-ish top that droops at the ends, tapering rocky underside.
 		var top: float = island.base + 70.0 * surface.get_noise_1d(x) + 50.0 * (1.0 - sqrt(edge))
 		var bottom: float = top + 20.0 + island.depth * sqrt(edge) + 18.0 * jag.get_noise_1d(x)
+		if terraced:
+			# Flat steps with only a little roughness, so cliffs stay sheer; the underside follows the base.
+			top = island.base - _step_lift(island, x) + 8.0 * surface.get_noise_1d(x * 4.0) + 30.0 * (1.0 - sqrt(edge))
+			bottom = island.base + 20.0 + island.depth * sqrt(edge) + 18.0 * jag.get_noise_1d(x)
 		for y in range(maxi(0, int(top)), mini(height - 1, int(bottom)) + 1):
 			_paint_pixel(x, y, float(y) - top, bottom - top, speck, palette)
 

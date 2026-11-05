@@ -14,6 +14,7 @@ const PANEL_WIDTH := 1160.0
 var game
 var info: Label
 var teams_label: Label
+var team_bars: TeamBars
 var stage_label: Label
 var event_label: Label
 var help: Label
@@ -37,6 +38,30 @@ var pause_menu
 var weapon_hint: Label
 var _hint_pulse := 0.0
 var _round_text := ""
+
+
+## One HP bar per team, split into a segment per unit (empty segment = that unit is out).
+class TeamBars extends Control:
+	var game
+	var line_height := 20.0
+
+	func _draw() -> void:
+		if game == null:
+			return
+		for team in 2:
+			var team_units: Array = game.units.filter(func(u): return u.team == team)
+			var y := team * line_height + line_height * 0.5 - 5.0
+			var seg := 54.0
+			for i in team_units.size():
+				var u = team_units[i]
+				var r := Rect2(i * (seg + 4.0), y, seg, 10.0)
+				draw_rect(r, Color(0, 0, 0, 0.6))
+				var fill: float = float(u.hp) / u.MAX_HP
+				var c: Color = game.TEAM_COLORS[team]
+				if fill <= 0.4:
+					c = c.lerp(Color(1.0, 0.85, 0.3), 0.5)
+				draw_rect(Rect2(r.position, Vector2(seg * fill, 10.0)), c)
+				draw_rect(r, Color(1, 1, 1, 0.35), false, 1.0)
 
 
 class WindGauge extends Control:
@@ -75,6 +100,9 @@ func _ready() -> void:
 	touch = GameSettings.use_touch()
 	info = _label(Vector2(16, 10), 20)
 	teams_label = _label(Vector2(16, 44), 14)
+	team_bars = TeamBars.new()
+	team_bars.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(team_bars)
 	order_label = _label(Vector2(16, 88), 14)
 	order_label.modulate = Color(1, 1, 1, 0.85)
 	stage_label = _label(Vector2(640, 12), 14)
@@ -302,11 +330,20 @@ func _process(delta: float) -> void:
 		for unit in game.units:
 			if unit.team == team:
 				hp += unit.hp
-		var line := L.t("%s  เหลือ %d คน  %d HP") % [game.team_name(team), game.alive_count(team), hp]
+		var line := L.t("%s  เหลือ %d คน") % [game.team_name(team), game.alive_count(team)]
 		if game.team_boost[team] > 0.0:
 			line += L.t("   (+) นัดถัดไปแรงขึ้น %d%%") % int(game.team_boost[team] * 100)
 		lines.append(line)
 	teams_label.text = "\n".join(lines)
+	# Bars sit right of the longest team line (the text length depends on the language).
+	var font := teams_label.get_theme_font("font")
+	var widest := 0.0
+	for line in lines:
+		widest = maxf(widest, font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x)
+	team_bars.game = game
+	team_bars.line_height = teams_label.get_line_height()
+	team_bars.position = teams_label.position + Vector2(widest + 14.0, 0)
+	team_bars.queue_redraw()
 	wind_gauge.wind = game.physics.wind
 	wind_gauge.queue_redraw()
 	wind_title.text = L.t("ลมสุริยะ %d") % roundi(game.physics.wind.length())
