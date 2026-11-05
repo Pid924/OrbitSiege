@@ -16,7 +16,11 @@ const FRIENDLY_RADIUS := 60.0
 @export var angle_error_deg := 0.8
 @export var power_error := 0.01
 
-enum State { IDLE, WAIT, SEARCH, AIM, CHARGE }
+enum State { IDLE, WAIT, WALK, SEARCH, AIM, CHARGE }
+
+const CRATE_REACH := 320.0  # walks to a landed crate this close along the ground
+const GOOD_SHOT := 45.0  # impact this close to an enemy is good enough; otherwise try walking once
+const MAX_WALK_TIME := 2.6
 
 var game
 var team := 1
@@ -30,6 +34,12 @@ var best_power := 0.6
 var best_score := INF
 var charge := 0.0
 var rng := RandomNumberGenerator.new()
+var walk_dir := 0
+var walk_goal = null  # Vector2 to reach, or null to walk for walk_time
+var walk_time := 0.0
+var walked_for_aim := false
+var _last_pos := Vector2.ZERO
+var _stuck := 0.0
 
 
 func setup(game_ref, team_id: int) -> void:
@@ -48,7 +58,19 @@ func begin_turn(u) -> void:
 	best_score = INF
 	refined = false
 	charge = 0.0
+	walked_for_aim = false
 	candidates.clear()
+	_fill_candidates()
+	game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find(_pick_weapon())})
+	var crate = _reachable_crate()
+	if crate != null:
+		_start_walk(crate.position, 0.0)
+
+
+func _fill_candidates() -> void:
+	candidates.clear()
+	best_score = INF
+	refined = false
 	if unit.rooted_turns > 0:
 		# Netted: the barrel is stuck, so only the power can be chosen.
 		refined = true
@@ -58,7 +80,6 @@ func begin_turn(u) -> void:
 		for a in range(-150, 151, 5):
 			for p in range(30, 101, 7):
 				candidates.append([deg_to_rad(a), p / 100.0])
-	game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find(_pick_weapon())})
 
 
 ## Mostly plasma; uses Last Stand when unlocked, and the special shells now and then.
@@ -92,7 +113,9 @@ func _physics_process(delta: float) -> void:
 		State.WAIT:
 			wait -= delta
 			if wait <= 0.0:
-				state = State.SEARCH
+				state = State.WALK if walk_dir != 0 else State.SEARCH
+		State.WALK:
+			_walk_step(delta)
 		State.SEARCH:
 			_search_step()
 		State.AIM:
@@ -129,6 +152,19 @@ func _search_step() -> void:
 			best_power = c[1]
 	if not candidates.is_empty():
 		return
+	if best_score > GOOD_SHOT and not walked_for_aim and unit.rooted_turns == 0:
+		# No good shot from here: take a few steps (toward the enemy, or away from a wall) and look again.
+		walked_for_aim = true
+		var enemy = _nearest_enemy()
+		var tangent: Vector2 = Vector2(-unit.up.y, unit.up.x)
+		var dir := 1
+		if enemy:
+			dir = 1 if (enemy.position - unit.position).dot(tangent) > 0.0 else -1
+		if rng.randf() < 0.35:
+			dir = -dir
+		_fill_candidates()
+		_start_walk(null, rng.randf_range(0.8, 1.8), dir)
+		return
 	if not refined and best_score < INF:
 		# Second pass: fine grid around the best coarse shot.
 		refined = true
@@ -157,6 +193,58 @@ func _legal(angle: float) -> float:
 	return game.clamp_aim(angle, 1 if angle > 0.0 else -1)
 
 
+## A landed crate on reachable ground near the unit, or null.
+func _reachable_crate():
+	if unit.rooted_turns > 0:
+		return null
+	var best = null
+	var best_d := CRATE_REACH
+	for c in game.crates:
+		if c.gone or not c.landed:
+			continue
+		var d: float = c.position.distance_to(unit.position)
+		# Roughly level with the unit: it can walk there without dropping off a ledge.
+		if d < best_d and absf((c.position - unit.position).dot(unit.up)) < 60.0:
+			best_d = d
+			best = c
+	return best
+
+
+func _start_walk(goal, seconds: float, dir := 0) -> void:
+	walk_goal = goal
+	walk_time = seconds if goal == null else MAX_WALK_TIME
+	if goal != null:
+		var tangent: Vector2 = Vector2(-unit.up.y, unit.up.x)
+		dir = 1 if (goal - unit.position).dot(tangent) > 0.0 else -1
+	walk_dir = dir
+	_last_pos = unit.position
+	_stuck = 0.0
+	if state != State.WAIT:
+		state = State.WALK
+
+
+func _walk_step(delta: float) -> void:
+	walk_time -= delta
+	var done := walk_time <= 0.0
+	if walk_goal != null and unit.position.distance_to(walk_goal) < 8.0:
+		done = true
+	if unit.position.distance_to(_last_pos) < 0.2:
+		_stuck += delta
+		if _stuck > 0.35:
+			done = true  # wall or ledge
+	else:
+		_stuck = 0.0
+	_last_pos = unit.position
+	if done or not unit.alive:
+		walk_dir = 0
+		walk_goal = null
+		wait = 0.3
+		state = State.WAIT
+		_fill_candidates()  # the view changed: search again from here
+		return
+	game.submit_command({"type": "walk", "team": team, "dir": walk_dir})
+
+
 func _score_shot(angle: float, power: float, targets: PackedVector2Array) -> float:
 	var dir: Vector2 = unit.up.rotated(angle)
 	var muzzle: Vector2 = unit.position + unit.up * 10.0 + dir * 14.0
@@ -169,7 +257,7 @@ func _score_shot(angle: float, power: float, targets: PackedVector2Array) -> flo
 			continue
 		var d: float = impact.distance_to(u.body_center())
 		if u.team == team:
-			if d < FRIENDLY_RADIUS:
+			if d < FRIENDLY_RADIUS and not Weapons.get_def(game.current_weapon_id()).get("friendly_safe", false):
 				score += 500.0
 		else:
 			score = minf(score, d)

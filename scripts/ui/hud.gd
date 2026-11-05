@@ -115,7 +115,7 @@ func _ready() -> void:
 	event_label.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
-	help.text = L.t("ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง = ซูม") if touch else L.t("A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ = ซูม   คลิกขวาลาก = เลื่อนกล้อง   P = หยุด   Esc = เมนู")
+	help.text = L.t("ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง / +- = ซูม") if touch else L.t("A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ / +- = ซูม   คลิกขวาลาก = เลื่อนกล้อง   P = หยุด   Esc = เมนู")
 
 	# Pause instead of a direct menu button: the menu is one tap away on the pause screen.
 	var menu_button := Button.new()
@@ -142,6 +142,19 @@ func _ready() -> void:
 		if game.controllers[0].has_method("skip_turn"):
 			game.controllers[0].skip_turn())
 	add_child(skip_button)
+
+	# Zoom buttons under the wind gauge (pinch and the mouse wheel work too).
+	for k in 2:
+		var zb := Button.new()
+		zb.text = "+" if k == 0 else "-"
+		zb.position = Vector2(1500, 116 + k * 86) if touch else Vector2(1516, 112 + k * 52)
+		zb.size = Vector2(80, 76) if touch else Vector2(48, 44)
+		zb.focus_mode = Control.FOCUS_NONE
+		zb.add_theme_font_size_override("font_size", 40 if touch else 26)
+		zb.tooltip_text = L.t("ซูม (+/-)")
+		var factor := 1.25 if k == 0 else 0.8
+		zb.pressed.connect(func(): game.camera.zoom_step(factor))
+		add_child(zb)
 
 	wind_title = _label(Vector2(1470, 14), 13)
 	wind_gauge = WindGauge.new()

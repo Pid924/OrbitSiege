@@ -8,6 +8,7 @@ extends Node2D
 const SpacePhysics := preload("res://scripts/sim/space_physics.gd")
 const Weapons := preload("res://scripts/sim/weapons.gd")
 const L := preload("res://scripts/game/i18n.gd")
+const Sfx := preload("res://scripts/game/sfx.gd")
 const Terrain := preload("res://scripts/world/terrain.gd")
 const Starfield := preload("res://scripts/world/starfield.gd")
 const Unit := preload("res://scripts/game/unit.gd")
@@ -94,6 +95,7 @@ var winner := -1
 
 var autoplay := false
 var camera
+var sfx
 var aim_guide
 
 
@@ -163,6 +165,8 @@ func _build_world() -> void:
 
 	camera = CameraRig.new()
 	add_child(camera)
+	sfx = Sfx.new()
+	add_child(sfx)
 	camera.setup(Rect2(Vector2.ZERO, world_size), Vector2(0, 160) if abyss_y < INF else Vector2.ZERO)
 
 	var hud := Hud.new()
@@ -425,6 +429,7 @@ func _launch(shot: Dictionary) -> void:
 	var w := Weapons.get_def(shot.weapon)
 	var count := int(w.get("spread", 1))
 	var step := deg_to_rad(w.get("spread_deg", 0.0))
+	sfx.play("fire")
 	for k in count:
 		active_unit.aim_angle = shot.angle + (k - (count - 1) / 2.0) * step
 		var vel: Vector2 = active_unit.aim_dir() * shot.power * SpacePhysics.MAX_SPEED
@@ -558,6 +563,12 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		_call_sky_strike(pos, weapon_id)
 		return
 	var radius: float = w.radius * shot_radius_mult
+	if w.has("heal"):
+		sfx.play("heal")
+	elif w.has("root_radius"):
+		sfx.play("zap")
+	elif radius > 0.0:
+		sfx.play("boom", radius / 40.0)
 	var shooter_team: int = current_team
 	if radius > 0.0:
 		var crater: float = w.get("carve", w.radius)
@@ -578,6 +589,8 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 			_float_text(c + Vector2(0, -46), L.t("ติดตาข่าย!"), Color(0.6, 0.85, 1.0))
 		if d >= reach:
 			continue
+		if w.get("friendly_safe", false) and u.team == shooter_team:
+			continue  # Trident: teammates are never hurt
 		if w.has("heal") and u.team == shooter_team:
 			var healed: int = u.heal(int(w.heal))
 			if healed > 0:
@@ -588,6 +601,7 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		if dmg <= 0:
 			continue
 		u.take_damage(dmg)
+		sfx.play("hit")
 		_float_text(c + Vector2(0, -30), "-%d" % dmg, Color(1, 0.85, 0.4))
 	if w.has("bomblets"):
 		var back: Vector2 = -vel.normalized() if vel.length_squared() > 1.0 else physics.up_at(pos)
@@ -605,6 +619,7 @@ func _call_sky_strike(pos: Vector2, weapon_id: String) -> void:
 	var w := Weapons.get_def(weapon_id)
 	var axis := physics.up_at(pos)
 	pending_strikes.append({"pos": pos, "axis": axis, "weapon": weapon_id, "time": float(w.strike_delay)})
+	sfx.play("beam")
 	var beam := SkyBeam.new()
 	beam.setup(pos, axis, w.strike_width, w.strike_delay, w.color)
 	add_child(beam)
@@ -671,6 +686,7 @@ func _tick_crates(delta: float) -> void:
 
 
 func _collect(crate, unit) -> void:
+	sfx.play("pickup")
 	var id: String = AMMO_LOOT[rng.randi() % AMMO_LOOT.size()]
 	if team_ammo[unit.team].has(id):  # unlimited (debug) stays unlimited
 		team_ammo[unit.team][id] += 1
@@ -681,6 +697,7 @@ func _collect(crate, unit) -> void:
 
 
 func _on_unit_fell(unit) -> void:
+	sfx.play("fall")
 	var pos: Vector2 = unit.position.clamp(Vector2(40, 40), Vector2(world_size.x - 40, minf(abyss_y, world_size.y) - 30))
 	var msg := L.t("%s ตกลงไปในแกนดาว!") if unit.fell_into_core else L.t("%s หายไปในอวกาศ!")
 	_float_text(pos, msg % unit.unit_name, Color(1, 0.5, 0.5))
@@ -716,6 +733,7 @@ func _end_turn() -> void:
 		active_unit = null
 		if autoplay:
 			print("game over after %d turns (%d rounds), winner: %d" % [turn_number, round_number, winner])
+		sfx.play("win" if winner == 0 else "lose")
 		game_over.emit(winner)
 		return
 	_start_turn()
@@ -780,6 +798,7 @@ func _start_turn() -> void:
 	current_team = active_unit.team
 	physics.wind = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, MAX_WIND)
 	active_unit.is_active = true
+	sfx.play("turn")
 	active_unit.tilt = active_unit.ground_tilt()
 	if active_unit.rooted_turns == 0:
 		active_unit.aim_angle = clamp_aim(active_unit.aim_angle, aim_side(active_unit))

@@ -54,12 +54,20 @@ func tick(dt: float) -> void:
 				vel = vel.normalized() * 170.0
 			else:
 				_detonate()
-		elif age > unit_ignore_time and game.unit_at(position) != null:
+		elif age > unit_ignore_time and _enemy_or_any_at(w, position):
 			_detonate(true)
 	trail.append(position)
 	if trail.size() > 40:
 		trail.pop_front()
 	queue_redraw()
+
+
+## A unit at `pos` this shell bursts on; friendly-safe shells fly through teammates.
+func _enemy_or_any_at(w: Dictionary, pos: Vector2) -> bool:
+	var u = game.unit_at(pos)
+	if u == null:
+		return false
+	return not (w.get("friendly_safe", false) and u.team == game.current_team)
 
 
 ## Turns toward the locked target. Returns false when there is nothing to chase.

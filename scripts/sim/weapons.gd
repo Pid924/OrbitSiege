@@ -5,6 +5,7 @@ extends RefCounted
 ##   shots        fire again with the same aim after the previous shell lands
 ##   spread       number of shells fired at once in a fan, spread_deg apart
 ##   elev         Vector2(min, max) barrel angle in degrees above the ground (0 = flat, 90 = straight up)
+##   friendly_safe  never hurts (or bursts on) the shooter's own team
 ##   min_round    first round in which it may be fired
 ##   hp_ratio_max only usable while the shooter's HP is at or below this ratio
 ##   root_radius  enemies inside cannot walk on their next turn
@@ -42,9 +43,9 @@ const DATA := {
 		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
-		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0, "elev": Vector2(0, 50),
+		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0, "friendly_safe": true, "elev": Vector2(0, 50),
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
-		"desc": "ยิงออกเป็น 3 นัดพร้อมกันแบบพัด กระจายโดนศัตรูได้ถึง 3 ตัว",
+		"desc": "ยิงออกเป็น 3 นัดพร้อมกันแบบพัด กระจายโดนศัตรูได้ถึง 3 ตัว และไม่โดนเพื่อนร่วมทีม",
 	},
 	"rage": {
 		"name": "Last Stand", "radius": 60.0, "damage": 80.0, "ammo": 1, "hp_ratio_max": 0.4, "elev": Vector2(0, 60),

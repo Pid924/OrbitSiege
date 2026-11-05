@@ -5,6 +5,7 @@ const Starfield := preload("res://scripts/world/starfield.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 const HowToPlay := preload("res://scripts/ui/how_to_play.gd")
 const L := preload("res://scripts/game/i18n.gd")
+const Sfx := preload("res://scripts/game/sfx.gd")
 
 var guide_button: Button
 var bot_button: Button
@@ -70,6 +71,18 @@ func _ready() -> void:
 	help.add_theme_font_size_override("font_size", 22)
 	help.pressed.connect(func(): _show_help("@close", ""))
 	ui.add_child(help)
+
+	Sfx.load_setting()
+	var sound := Button.new()
+	sound.text = L.t("เสียง: %s") % L.t("เปิด" if Sfx.enabled else "ปิด")
+	sound.position = Vector2(1210, 24) if OS.has_feature("web") else Vector2(1400, 24)
+	sound.size = Vector2(176, 60)
+	sound.focus_mode = Control.FOCUS_NONE
+	sound.add_theme_font_size_override("font_size", 20)
+	sound.pressed.connect(func():
+		Sfx.set_enabled(not Sfx.enabled)
+		sound.text = L.t("เสียง: %s") % L.t("เปิด" if Sfx.enabled else "ปิด"))
+	ui.add_child(sound)
 
 	if OS.has_feature("web"):
 		# Phones: full screen hides the browser bars; Android also locks to landscape.
