@@ -28,6 +28,8 @@ var weapon_name: Label
 var weapon_stats: Label
 var weapon_desc: Label
 var _banner_time := 0.0
+var net_label: Label  # online: waiting / lost connection
+var _net_gone := false
 var touch := false
 var touch_controls: Control
 var current_card: Button
@@ -91,7 +93,7 @@ func setup(game_ref) -> void:
 		touch_controls = TouchControls.new()
 		add_child(touch_controls)
 		move_child(touch_controls, 0)
-		var player = game.controllers[0] if not game.autoplay else null
+		var player = game.controllers[game.local_team] if not game.autoplay else null
 		touch_controls.setup(game, player)
 		touch_controls.visible = player != null
 
@@ -139,8 +141,8 @@ func _ready() -> void:
 	skip_button.add_theme_font_size_override("font_size", 22 if touch else 16)
 	skip_button.tooltip_text = L.t("จบตานี้เลย ใช้เวลาน้อย = รอบหน้าได้เล่นก่อน")
 	skip_button.pressed.connect(func():
-		if game.controllers[0].has_method("skip_turn"):
-			game.controllers[0].skip_turn())
+		if game.controllers[game.local_team].has_method("skip_turn"):
+			game.controllers[game.local_team].skip_turn())
 	add_child(skip_button)
 
 	# Zoom buttons under the wind gauge (pinch and the mouse wheel work too).
@@ -172,6 +174,10 @@ func _ready() -> void:
 	banner.add_theme_color_override("font_outline_color", Color.BLACK)
 	banner.add_theme_constant_override("outline_size", 8)
 	add_child(banner)
+	net_label = _label(Vector2(0, 250), 26)
+	net_label.size = Vector2(1600, 40)
+	net_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	net_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 
 	replay_button = Button.new()
 	replay_button.text = L.t("เล่นอีกครั้ง")
@@ -180,7 +186,11 @@ func _ready() -> void:
 	replay_button.focus_mode = Control.FOCUS_NONE
 	replay_button.add_theme_font_size_override("font_size", 32)
 	replay_button.visible = false
-	replay_button.pressed.connect(func(): get_tree().reload_current_scene())
+	replay_button.pressed.connect(func():
+		if game.net:
+			game.go_to_menu()
+		else:
+			get_tree().reload_current_scene())
 	add_child(replay_button)
 
 	pause_menu = PauseMenu.new()
@@ -298,14 +308,16 @@ func _label(pos: Vector2, font_size: int) -> Label:
 
 
 func _on_card_pressed(index: int) -> void:
-	# Only the local human team (team 0) picks weapons by mouse.
-	if game.is_turn_of(0) and not game.autoplay:
-		game.submit_command({"type": "weapon", "team": 0, "index": index})
+	# Only the local human team picks weapons by mouse.
+	if game.is_turn_of(game.local_team) and not game.autoplay:
+		game.submit_command({"type": "weapon", "team": game.local_team, "index": index})
 
 
 func _process(delta: float) -> void:
 	if game == null:
 		return
+	if game.net:
+		_update_net()
 	var u = game.active_unit
 	if u:
 		var who: String = game.team_name(game.current_team)
@@ -322,8 +334,8 @@ func _process(delta: float) -> void:
 	if current_card:
 		current_card.icon = load(w.icon)
 		_update_weapon_hint(delta)
-	skip_button.visible = not game.autoplay and game.is_turn_of(0)
-	var view_team: int = 0 if not game.autoplay else game.current_team
+	skip_button.visible = not game.autoplay and game.is_turn_of(game.local_team)
+	var view_team: int = game.local_team if not game.autoplay else game.current_team
 	for i in weapon_cards.size():
 		var id: String = Weapons.LIST[i]
 		var selected: bool = id == current
@@ -370,9 +382,9 @@ func _process(delta: float) -> void:
 func _update_weapon_hint(delta: float) -> void:
 	var ready := 0
 	for i in range(1, Weapons.LIST.size()):
-		if game.weapon_available(0, Weapons.LIST[i]):
+		if game.weapon_available(game.local_team, Weapons.LIST[i]):
 			ready += 1
-	var show: bool = game.is_turn_of(0) and not game.autoplay and ready > 0 and game.team_weapon[0] == 0 \
+	var show: bool = game.is_turn_of(game.local_team) and not game.autoplay and ready > 0 and game.team_weapon[game.local_team] == 0 \
 		and not touch_controls.picker_opened
 	weapon_hint.visible = show
 	weapon_hint.text = L.t("มีอาวุธพิเศษพร้อมใช้ %d แบบ  ·  แตะรูปอาวุธเพื่อเลือก") % ready
@@ -446,16 +458,40 @@ func _on_turn_started(team: int, unit) -> void:
 	_banner_time = hold
 
 
+func _update_net() -> void:
+	if not game.net.connected() and not _net_gone and not game.is_over():
+		_net_gone = true
+		banner.text = L.t("อีกฝ่ายออกจากเกมแล้ว")
+		banner.modulate = Color.WHITE
+		_banner_time = 9999.0
+		replay_button.text = L.t("กลับเมนู")
+		replay_button.visible = true
+		if touch_controls:
+			touch_controls.visible = false
+	if _net_gone:
+		net_label.text = ""
+	elif game.net.desync:
+		net_label.text = L.t("ข้อมูลสองเครื่องไม่ตรงกัน")
+	elif game.net_wait > 0.5:
+		net_label.text = L.t("รอสัญญาณจากอีกเครื่อง...")
+	else:
+		net_label.text = ""
+
+
 func _on_game_over(winner: int) -> void:
 	replay_button.visible = true
 	if touch_controls:
 		touch_controls.visible = false
 	if winner < 0:
 		banner.text = L.t("เสมอ!   กด R เพื่อเล่นอีกครั้ง")
-	elif winner == 0:
+	elif winner == game.local_team:
 		banner.text = L.t("ชนะแล้ว!   กด R เพื่อเล่นอีกครั้ง")
+	elif game.net:
+		banner.text = L.t("อีกฝ่ายชนะ")
 	else:
 		banner.text = L.t("บอทชนะ   กด R เพื่อเล่นอีกครั้ง")
-	if touch:
+	if game.net:
+		replay_button.text = L.t("กลับเมนู")
+	if touch or game.net:
 		banner.text = banner.text.split("   ")[0]
 	banner.modulate = Color.WHITE

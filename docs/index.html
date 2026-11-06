@@ -111,7 +111,7 @@ body {
 		</style>
 		<link id='-gd-engine-icon' rel='icon' type='image/png' href='index.icon.png' />
 <link rel='apple-touch-icon' href='index.apple-touch-icon.png'/>
-<script src="coi-serviceworker.min.js"></script><style>#rotate-hint{display:none;position:fixed;inset:0;z-index:99;background:#05060f;color:#cfe6ff;font:20px sans-serif;align-items:center;justify-content:center;text-align:center;padding:24px}@media (orientation:portrait) and (pointer:coarse){#rotate-hint{display:flex}}</style><script>addEventListener("DOMContentLoaded",function(){var d=document.createElement("div");d.id="rotate-hint";d.innerHTML="&#x21bb;<br>กรุณาหมุนมือถือเป็นแนวนอน<br>Please rotate your phone";document.body.appendChild(d);});</script>
+<script src="coi-serviceworker.min.js"></script><script src="peerjs.min.js"></script><script src="osnet.js"></script><style>#rotate-hint{display:none;position:fixed;inset:0;z-index:99;background:#05060f;color:#cfe6ff;font:20px sans-serif;align-items:center;justify-content:center;text-align:center;padding:24px}@media (orientation:portrait) and (pointer:coarse){#rotate-hint{display:flex}}</style><script>addEventListener("DOMContentLoaded",function(){var d=document.createElement("div");d.id="rotate-hint";d.innerHTML="&#x21bb;<br>กรุณาหมุนมือถือเป็นแนวนอน<br>Please rotate your phone";document.body.appendChild(d);});</script>
 	</head>
 	<body>
 		<canvas id="canvas">
@@ -137,7 +137,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":749664,"index.wasm":35708238},"focusCanvas":true,"gdextensionLibs":[]};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":782656,"index.wasm":35708238},"focusCanvas":true,"gdextensionLibs":[]};
 const engine = new Engine(GODOT_CONFIG);
 
 (function () {

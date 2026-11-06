@@ -14,6 +14,11 @@ var aim_button: Button
 var touch_button: Button
 var ui: CanvasLayer
 var help_open := false
+var net  # the OrbitNet autoload
+var online_button: Button
+var online_panel: Control  # rebuilt whenever the connection state changes
+var online_mode := ""  # "", "join" (typing a code)
+var join_code := ""
 
 ## Flag taps in this order switch debug mode on or off: Thai Dutch Thai German, twice.
 const DEBUG_CODE := ["th", "nl", "th", "de", "th", "nl", "th", "de"]
@@ -121,6 +126,21 @@ func _ready() -> void:
 		ui.add_child(b)
 		if i == 0:
 			b.grab_focus()
+	net = get_node_or_null("/root/OrbitNet")
+	if net and net.available():
+		online_button = Button.new()
+		online_button.position = Vector2(24, 312)
+		online_button.size = Vector2(350, 162)
+		online_button.focus_mode = Control.FOCUS_NONE
+		online_button.add_theme_font_size_override("font_size", 24)
+		online_button.pressed.connect(func():
+			online_mode = ""
+			if net.state != net.State.CONNECTED:
+				net.close()
+			_refresh_online(true))
+		ui.add_child(online_button)
+		net.changed.connect(_refresh_online)
+		_refresh_online(net.connected() and not net.is_host)
 	ui.add_child(_label(L.t("แตะ/คลิกด่าน หรือกดเลข 1-%d เพื่อเริ่ม") % GameSettings.STAGE_ORDER.size(), Vector2(0, 738), 16))
 	var version := _label("v%s" % GameSettings.VERSION + ("  ·  DEBUG" if GameSettings.debug else ""), Vector2(0, 860), 14)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -202,6 +222,16 @@ func _label(text: String, pos: Vector2, font_size: int) -> Label:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if online_panel and online_panel.visible:
+		if event is InputEventKey and event.pressed and not event.echo and online_mode == "join":
+			var digit: int = event.physical_keycode - KEY_0
+			if digit >= 0 and digit <= 9:
+				_type_digit(str(digit))
+			elif event.physical_keycode == KEY_BACKSPACE:
+				_type_digit("del")
+			elif event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER]:
+				_type_digit("ok")
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		var index: int = event.physical_keycode - KEY_1
 		if index >= 0 and index < GameSettings.STAGE_ORDER.size():
@@ -210,6 +240,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _start(stage_id: String) -> void:
 	if help_open:
+		return
+	if net and net.connected():
+		if net.is_host:
+			net.start_match(stage_id)  # the guest's phone opens the same match
 		return
 	if not HowToPlay.seen():
 		_show_help(L.t("เริ่มเกม"), stage_id)  # explain the game before the first match
@@ -231,3 +265,110 @@ func _show_help(button_text: String, stage_id: String) -> void:
 func _begin(stage_id: String) -> void:
 	GameSettings.stage = stage_id
 	get_tree().change_scene_to_file("res://scenes/main.tscn")
+
+
+# --- Online ---------------------------------------------------------------
+
+## Redraws the online button and the room panel for the current connection state.
+func _refresh_online(show := false) -> void:
+	var connected: bool = net.connected()
+	if connected and net.is_host:
+		online_button.text = L.t("ออนไลน์: เพื่อนเข้าห้องแล้ว") + "\n" + L.t("เลือกด่านเพื่อเริ่ม")
+	elif connected:
+		online_button.text = L.t("ออนไลน์: เชื่อมต่อแล้ว")
+	else:
+		online_button.text = L.t("เล่นออนไลน์") + "\n" + L.t("(2 เครื่อง)")
+	var was_open: bool = online_panel != null and online_panel.visible
+	if online_panel:
+		online_panel.queue_free()
+		online_panel = null
+	if connected and net.is_host:
+		return  # host now picks a stage from the normal list
+	if not (show or was_open):
+		return
+	online_panel = Control.new()
+	online_panel.size = Vector2(1600, 900)
+	ui.add_child(online_panel)
+	var dim := ColorRect.new()
+	dim.color = Color(0.01, 0.02, 0.06, 0.94)
+	dim.size = online_panel.size
+	online_panel.add_child(dim)
+	online_panel.add_child(_label(L.t("เล่นออนไลน์ 2 เครื่อง"), Vector2(0, 90), 48))
+	var info := _label("", Vector2(0, 190), 28)
+	info.size.y = 120
+	online_panel.add_child(info)
+	var close_text := L.t("ปิดหน้านี้")
+	match net.state:
+		net.State.WAITING:
+			info.text = L.t("รหัสห้องของคุณ") + "\n" + L.t("ส่งรหัสนี้ให้เพื่อน แล้วรอเพื่อนเข้าห้อง...")
+			var code := _label(net.room_code, Vector2(0, 330), 120)
+			code.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+			online_panel.add_child(code)
+			close_text = L.t("ยกเลิก")
+		net.State.CONNECTING:
+			info.text = L.t("กำลังเชื่อมต่อห้อง %s ...") % net.room_code
+			close_text = L.t("ยกเลิก")
+		net.State.CONNECTED:
+			info.text = L.t("เชื่อมต่อแล้ว!") + "\n" + L.t("รอเจ้าของห้องเลือกด่าน...")
+			close_text = L.t("ออกจากห้อง")
+		_:
+			if net.state == net.State.CLOSED:
+				info.text = L.t("การเชื่อมต่อหลุดแล้ว")
+			elif net.state == net.State.FAILED:
+				info.text = L.t(net.error) + (" (%s)" % net.error_detail if net.error_detail != "" else "")
+			else:
+				info.text = L.t("เล่นกับเพื่อนผ่านอินเทอร์เน็ต ไม่ต้องมีเซิร์ฟเวอร์")
+			if online_mode == "join":
+				_build_keypad()
+			else:
+				_panel_button(L.t("สร้างห้อง"), Vector2(560, 360), func(): net.host_room())
+				_panel_button(L.t("เข้าห้องด้วยรหัส"), Vector2(560, 480), func():
+					online_mode = "join"
+					join_code = ""
+					_refresh_online(true))
+	_panel_button(close_text, Vector2(560, 770), func():
+		online_mode = ""
+		net.close()
+		if online_panel:
+			online_panel.visible = false
+		_refresh_online(false), Vector2(480, 86))
+
+
+func _panel_button(text: String, pos: Vector2, action: Callable, size := Vector2(480, 96)) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.position = pos
+	b.size = size
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", 32)
+	b.pressed.connect(action)
+	online_panel.add_child(b)
+	return b
+
+
+func _build_keypad() -> void:
+	var shown := join_code + "_".repeat(4 - join_code.length())
+	online_panel.add_child(_label(" ".join(shown.split("")), Vector2(0, 280), 64))
+	var keys := ["1", "2", "3", "4", "5", "6", "7", "8", "9", "del", "0", "ok"]
+	for i in keys.size():
+		var key: String = keys[i]
+		var text: String = key
+		if key == "del":
+			text = L.t("ลบ")
+		elif key == "ok":
+			text = L.t("เข้าห้อง")
+		var b := _panel_button(text, Vector2(565 + (i % 3) * 160, 380 + (i / 3) * 96), _type_digit.bind(key), Vector2(150, 86))
+		b.disabled = key == "ok" and join_code.length() < 4
+
+
+func _type_digit(key: String) -> void:
+	if key == "del":
+		join_code = join_code.left(-1)
+	elif key == "ok":
+		if join_code.length() == 4:
+			online_mode = ""
+			net.join_room(join_code)
+			return
+	elif join_code.length() < 4:
+		join_code += key
+	_refresh_online(true)

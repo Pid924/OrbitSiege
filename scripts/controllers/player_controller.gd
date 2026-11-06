@@ -15,6 +15,9 @@ var touch_walk := 0
 var touch_aim := 0
 var touch_fire := false
 var touch_fine := false
+## Online, commands take effect a few ticks later; aim runs ahead on this predicted angle
+## so holding the button keeps the barrel turning smoothly.
+var aim_pred := 0.0
 
 
 func setup(game_ref, team_id: int) -> void:
@@ -53,11 +56,15 @@ func _physics_process(delta: float) -> void:
 	if Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN):
 		aim += 1.0
 	aim = clampf(aim + touch_aim, -1.0, 1.0)
+	if aim == 0.0 or game.net == null:
+		aim_pred = unit.aim_angle
 	if aim != 0.0:
 		var speed: float = GameSettings.AIM_OPTIONS[GameSettings.aim_speed][1]
 		if Input.is_physical_key_pressed(KEY_SHIFT) or touch_fine:
 			speed *= 0.25
-		game.submit_command({"type": "aim", "team": team, "angle": unit.aim_angle + aim * speed * delta * game.aim_side(unit)})
+		var side: int = game.aim_side(unit)
+		aim_pred = game.clamp_aim(aim_pred + aim * speed * delta * side, side)
+		game.submit_command({"type": "aim", "team": team, "angle": aim_pred})
 
 	if Input.is_physical_key_pressed(KEY_SPACE) or touch_fire:
 		charging = true
@@ -65,7 +72,8 @@ func _physics_process(delta: float) -> void:
 		game.submit_command({"type": "charge", "team": team, "value": charge})
 	elif charging:
 		charging = false
-		game.submit_command({"type": "fire", "team": team, "angle": unit.aim_angle, "power": charge})
+		# Online the shot uses the barrel as it is when the command lands (after our aim commands).
+		game.submit_command({"type": "fire", "team": team, "angle": unit.aim_angle, "power": charge, "current": game.net != null})
 
 
 func _unhandled_input(event: InputEvent) -> void:

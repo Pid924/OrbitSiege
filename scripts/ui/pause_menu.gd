@@ -17,7 +17,8 @@ func setup(game_ref) -> void:
 	dim.size = size
 	add_child(dim)
 	var title := Label.new()
-	title.text = L.t("หยุดเกมชั่วคราว")
+	# Online the match cannot stop (the other phone keeps playing), so this is only a menu.
+	title.text = L.t("หยุดเกมชั่วคราว") if game.net == null else L.t("เกมออนไลน์ไม่หยุดระหว่างเปิดเมนู")
 	title.position = Vector2(0, 280)
 	title.size = Vector2(1600, 70)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -50,10 +51,11 @@ func set_paused(on: bool) -> void:
 	if on:
 		get_parent().move_child(self, -1)  # above banners and hints added later
 	visible = on
-	get_tree().paused = on
+	if game.net == null:
+		get_tree().paused = on
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_P:
-		set_paused(not get_tree().paused)
+		set_paused(not visible)
 		get_viewport().set_input_as_handled()

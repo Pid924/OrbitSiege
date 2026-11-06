@@ -17,6 +17,7 @@ const Explosion := preload("res://scripts/game/explosion.gd")
 const FloatingText := preload("res://scripts/game/floating_text.gd")
 const PlayerController := preload("res://scripts/controllers/player_controller.gd")
 const BotController := preload("res://scripts/controllers/bot_controller.gd")
+const RemoteController := preload("res://scripts/controllers/remote_controller.gd")
 const Hud := preload("res://scripts/ui/hud.gd")
 const GameSettings := preload("res://scripts/game/game_settings.gd")
 const AimGuide := preload("res://scripts/game/aim_guide.gd")
@@ -94,6 +95,17 @@ var turn_number := 0
 var winner := -1
 
 var autoplay := false
+## Online (see scripts/net/net.gd): `net` is the OrbitNet node while a match is played online.
+var net = null
+var local_team := 0  # the team this device steers
+var net_tick := 0  # next tick to simulate
+var net_sent := 0  # next tick whose commands we have not sent yet
+var net_outbox: Array = []
+var net_wait := 0.0  # how long we have been waiting on the other phone
+var hud
+const NET_GIVE_UP := 30.0  # seconds without the other phone before the match ends
+const NET_CATCHUP := 4  # ticks per frame when behind
+const NET_MERGE := ["walk", "face", "aim", "charge"]  # only the newest of these per tick
 var camera
 var sfx
 var aim_guide
@@ -106,6 +118,11 @@ func _ready() -> void:
 			GameSettings.stage = arg.trim_prefix("--stage=")
 	stage = GameSettings.stage if GameSettings.STAGES.has(GameSettings.stage) else "drift"
 	match_seed = int(Time.get_unix_time_from_system()) ^ randi()
+	var online = get_node_or_null("/root/OrbitNet")
+	if online and online.active:
+		net = online
+		local_team = net.local_team
+		match_seed = net.match_seed
 	rng.seed = match_seed
 	_build_world()
 	_start_turn()
@@ -159,6 +176,10 @@ func _build_world() -> void:
 	# `-- --autoplay` lets two bots play each other (demo / smoke test).
 	autoplay = "--autoplay" in OS.get_cmdline_user_args()
 	controllers = [BotController.new() if autoplay else PlayerController.new(), BotController.new()]
+	if net:
+		controllers = [PlayerController.new(), RemoteController.new()]
+		if local_team == 1:
+			controllers.reverse()
 	for team in controllers.size():
 		add_child(controllers[team])
 		controllers[team].setup(self, team)
@@ -169,7 +190,7 @@ func _build_world() -> void:
 	add_child(sfx)
 	camera.setup(Rect2(Vector2.ZERO, world_size), Vector2(0, 160) if abyss_y < INF else Vector2.ZERO)
 
-	var hud := Hud.new()
+	hud = Hud.new()
 	add_child(hud)
 	hud.setup(self)
 
@@ -329,7 +350,18 @@ func _planet_spots(planets: Array) -> Array:
 ##   {"type": "fire", "team": t, "angle": float, "power": 0..1}
 ##   {"type": "skip", "team": t}                       (end the turn without firing)
 func submit_command(cmd: Dictionary) -> void:
-	command_queue.append(cmd)
+	if net == null:
+		command_queue.append(cmd)
+		return
+	# Online: commands wait in the outbox and go out with the next tick we send.
+	if cmd.get("team", -1) != local_team:
+		return
+	if cmd.type in NET_MERGE:
+		for i in net_outbox.size():
+			if net_outbox[i].type == cmd.type:
+				net_outbox[i] = cmd
+				return
+	net_outbox.append(cmd)
 
 
 func is_turn_of(team: int) -> bool:
@@ -367,6 +399,10 @@ func is_over() -> bool:
 
 func go_to_menu() -> void:
 	get_tree().paused = false
+	if net:
+		net.active = false
+		if not is_over():
+			net.close()  # leaving mid-match ends it for the other phone too
 	get_tree().change_scene_to_file("res://scenes/menu.tscn")
 
 
@@ -394,7 +430,8 @@ func _apply_command(cmd: Dictionary) -> void:
 			aim_guide.clear()
 			_begin_settling()
 		"fire":
-			var angle: float = active_unit.aim_angle if active_unit.rooted_turns > 0 else cmd.angle
+			var use_current: bool = active_unit.rooted_turns > 0 or cmd.get("current", false)
+			var angle: float = active_unit.aim_angle if use_current else cmd.angle
 			_fire(angle, clampf(cmd.power, 0.05, 1.0))
 
 
@@ -447,8 +484,45 @@ func _spawn_projectile(pos: Vector2, vel: Vector2, weapon: String, ignore_time :
 # --- Simulation -----------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
+	if net:
+		_net_physics(delta)
+		return
 	while not command_queue.is_empty():
 		_apply_command(command_queue.pop_front())
+	_step(delta)
+
+
+## Online: send our pending commands, then simulate every tick both phones have sent.
+func _net_physics(delta: float) -> void:
+	if not net.connected():
+		return
+	while net_sent < net_tick + net.DELAY:
+		net.send_tick(net_sent, net_outbox)
+		net_outbox = []
+		net_sent += 1
+	var steps := 0
+	while steps < NET_CATCHUP and net.has_tick(net_tick):
+		for cmd in net.take_tick(net_tick):
+			_apply_command(cmd)
+		_step(1.0 / 60.0)
+		net_tick += 1
+		steps += 1
+		if net_tick % 60 == 0:
+			net.send_sum(net_tick, checksum())
+	net_wait = 0.0 if steps > 0 else net_wait + delta
+	if net_wait > NET_GIVE_UP:
+		net.drop()  # the other phone is gone (closed, crashed, or away too long)
+
+
+## Fingerprint of the game state; both phones compare it to catch a split.
+func checksum() -> int:
+	var s := "%d|%d|%d|" % [turn_number, rng.state, phase]
+	for u in units:
+		s += "%.2f,%.2f,%d;" % [u.position.x, u.position.y, u.hp]
+	return s.hash()
+
+
+func _step(delta: float) -> void:
 	for u in units:
 		u.tick(delta)
 	_tick_crates(delta)
@@ -499,7 +573,7 @@ func _process(_delta: float) -> void:
 
 func _update_aim_guide() -> void:
 	var guide_time: float = GameSettings.GUIDE_OPTIONS[GameSettings.guide][1]
-	if guide_time <= 0.0 or autoplay or not is_turn_of(0):
+	if guide_time <= 0.0 or autoplay or not is_turn_of(local_team):
 		aim_guide.clear()
 		return
 	var power: float = active_unit.charge if active_unit.charge > 0.0 else last_power.get(active_unit.unit_id, 0.6)
@@ -511,7 +585,7 @@ func _update_aim_guide() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
-	if event.physical_keycode == KEY_R and (phase == Phase.GAME_OVER or event.ctrl_pressed):
+	if event.physical_keycode == KEY_R and net == null and (phase == Phase.GAME_OVER or event.ctrl_pressed):
 		get_tree().reload_current_scene()
 	elif event.physical_keycode == KEY_ESCAPE:
 		go_to_menu()
@@ -733,7 +807,7 @@ func _end_turn() -> void:
 		active_unit = null
 		if autoplay:
 			print("game over after %d turns (%d rounds), winner: %d" % [turn_number, round_number, winner])
-		sfx.play("win" if winner == 0 else "lose")
+		sfx.play("win" if winner == local_team else "lose")
 		game_over.emit(winner)
 		return
 	_start_turn()
@@ -862,6 +936,8 @@ func _face(dir: int) -> void:
 
 
 func team_name(team: int) -> String:
+	if net:
+		return L.t("คุณ") if team == local_team else L.t("อีกฝ่าย")
 	return L.t(TEAM_NAMES[team])
 
 
