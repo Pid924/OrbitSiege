@@ -198,7 +198,8 @@ func _build_world() -> void:
 func _generate_planets() -> void:
 	if planet_count == 1:
 		# One giant world in the middle; shells curve around it.
-		physics.add_planet(Vector2(world_size.x * 0.5, world_size.y * 0.56), rng.randf_range(planet_radius.x, planet_radius.y))
+		var r := rng.randf_range(planet_radius.x, planet_radius.y)
+		physics.add_planet(Vector2(world_size.x * 0.5, world_size.y * 0.56), r, r + GameSettings.STAGES[stage].get("hold_height", 0.0))
 		return
 	var tries := 0
 	while (physics.planets.size() < planet_count and tries < 2000) or physics.planets.size() < mini(3, planet_count):

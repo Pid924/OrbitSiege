@@ -5,6 +5,7 @@ extends RefCounted
 const G := 320.0  # roughly the surface gravity (px/s^2) of any planet, since mass = radius^2
 const SOFTENING := 30.0
 const MAX_SPEED := 950.0
+const HOLD_PULL := 4000.0  # extra pull (px/s^2) at the hold radius of a "hold" planet
 const SUBSTEPS := 2
 const DT := 1.0 / (60.0 * SUBSTEPS)
 const MAX_FLIGHT_TIME := 12.0
@@ -16,8 +17,10 @@ var wind := Vector2.ZERO
 var bounds := Rect2(-250, -250, 2100, 1400)
 
 
-func add_planet(center: Vector2, radius: float) -> void:
-	planets.append({"center": center, "radius": radius, "mass": radius * radius})
+## `hold` > radius: above the surface the pull grows again (on top of normal gravity), so even
+## a full-power shot turns back before `hold` px from the center and never leaves the planet.
+func add_planet(center: Vector2, radius: float, hold := 0.0) -> void:
+	planets.append({"center": center, "radius": radius, "mass": radius * radius, "hold": hold})
 
 
 func gravity_at(pos: Vector2) -> Vector2:
@@ -26,6 +29,11 @@ func gravity_at(pos: Vector2) -> Vector2:
 		var d: Vector2 = p.center - pos
 		var dist_sq := d.length_squared() + SOFTENING * SOFTENING
 		g += d.normalized() * (G * p.mass / dist_sq)
+		var hold: float = p.get("hold", 0.0)
+		if hold > p.radius:
+			var up: float = (sqrt(dist_sq - SOFTENING * SOFTENING) - p.radius) / (hold - p.radius)
+			if up > 0.0:
+				g += d.normalized() * (HOLD_PULL * up * up)
 	return g
 
 
