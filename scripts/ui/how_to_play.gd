@@ -40,6 +40,7 @@ static func mark_seen(value: bool) -> void:
 
 func build(button_text: String) -> void:
 	size = Vector2(1600, 900)
+	set_meta("fit_center", true)  # a dense page: keep it together, centred
 	var bg := ColorRect.new()
 	bg.color = Color(0.02, 0.03, 0.08, 1.0)
 	bg.size = size

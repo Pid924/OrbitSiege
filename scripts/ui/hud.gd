@@ -7,6 +7,7 @@ const GameSettings := preload("res://scripts/game/game_settings.gd")
 const L := preload("res://scripts/game/i18n.gd")
 const TouchControls := preload("res://scripts/ui/touch_controls.gd")
 const PauseMenu := preload("res://scripts/ui/pause_menu.gd")
+const ScreenFit := preload("res://scripts/ui/screen_fit.gd")
 
 const CARD_SIZE := Vector2(60, 60)
 const PANEL_WIDTH := 1160.0
@@ -99,6 +100,7 @@ func setup(game_ref) -> void:
 
 
 func _ready() -> void:
+	add_child(ScreenFit.new())  # wide phones / tablets: UI follows the screen edges
 	touch = GameSettings.use_touch()
 	info = _label(Vector2(16, 10), 20)
 	teams_label = _label(Vector2(16, 44), 14)

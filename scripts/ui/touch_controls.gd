@@ -104,6 +104,7 @@ func _build_picker() -> void:
 	picker = ColorRect.new()
 	picker.color = Color(0, 0, 0, 0.6)
 	picker.size = Vector2(1600, 900)
+	picker.set_meta("fit_center", true)  # keep the card grid together on wide screens
 	picker.visible = false
 	picker.gui_input.connect(func(e):
 		if e is InputEventMouseButton and e.pressed:

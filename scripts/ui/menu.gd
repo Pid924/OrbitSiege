@@ -6,6 +6,7 @@ const GameSettings := preload("res://scripts/game/game_settings.gd")
 const HowToPlay := preload("res://scripts/ui/how_to_play.gd")
 const L := preload("res://scripts/game/i18n.gd")
 const Sfx := preload("res://scripts/game/sfx.gd")
+const ScreenFit := preload("res://scripts/ui/screen_fit.gd")
 
 var guide_button: Button
 var bot_button: Button
@@ -31,10 +32,11 @@ func _ready() -> void:
 	rng.randomize()
 	var stars := Starfield.new()
 	add_child(stars)
-	stars.generate(rng)
+	stars.generate(rng, Vector2(3200, 1800))  # also covers wide and tall screens
 
 	ui = CanvasLayer.new()
 	add_child(ui)
+	ui.add_child(ScreenFit.new())
 	var title := _label("ORBIT SIEGE", Vector2(0, 70), 84)
 	title.add_theme_color_override("font_color", Color(0.55, 0.85, 1.0))
 	ui.add_child(title)
@@ -196,6 +198,7 @@ func _option_button(pos: Vector2) -> Button:
 	var b := Button.new()
 	b.position = pos
 	b.size = Vector2(194, 60)
+	b.set_meta("fit_mid", true)  # the settings row stays together on wide screens
 	b.focus_mode = Control.FOCUS_NONE
 	b.add_theme_font_size_override("font_size", 15 if L.lang == "th" else 14)
 	return b
