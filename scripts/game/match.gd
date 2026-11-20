@@ -481,7 +481,9 @@ func _launch_one(shot: Dictionary, offset: float) -> void:
 	sfx.play("fire")
 	active_unit.aim_angle = shot.angle + offset
 	var vel: Vector2 = active_unit.aim_dir() * shot.power * SpacePhysics.MAX_SPEED
-	_spawn_projectile(active_unit.muzzle(), vel, shot.weapon)
+	var p := _spawn_projectile(active_unit.muzzle(), vel, shot.weapon)
+	if offset != 0.0:
+		p.wind_mult = Weapons.get_def(shot.weapon).get("side_wind_mult", 1.0)
 	active_unit.aim_angle = shot.angle
 
 
@@ -494,11 +496,12 @@ func _tick_volley(delta: float) -> void:
 				_launch_one(last_shot, v[1])
 
 
-func _spawn_projectile(pos: Vector2, vel: Vector2, weapon: String, ignore_time := 0.15) -> void:
+func _spawn_projectile(pos: Vector2, vel: Vector2, weapon: String, ignore_time := 0.15) -> Projectile:
 	var p := Projectile.new()
 	p.setup(self, pos, vel, weapon, ignore_time)
 	add_child(p)
 	projectiles.append(p)
+	return p
 
 
 # --- Simulation -----------------------------------------------------------

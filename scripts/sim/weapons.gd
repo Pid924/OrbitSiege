@@ -28,7 +28,7 @@ const DATA := {
 		"desc": "กระสุนพลาสมามาตรฐาน ระเบิดวงกว้าง ดาเมจสูง ใช้ได้ไม่จำกัด",
 	},
 	"cluster": {
-		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 4, "elev": Vector2(20, 80),
+		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 3, "elev": Vector2(20, 80),
 		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "direct_bomblets": 8, "direct_bomblet_speed": Vector2(60, 120), "icon": "res://assets/weapons/cluster.png",
 		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูก ถ้าโดนตัวศัตรูจัง ๆ แตก 8 ลูก กินพื้นหายไปเยอะ ทำให้ศัตรูร่วงได้",
 	},
@@ -43,9 +43,9 @@ const DATA := {
 		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
-		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 5, "spread": 3, "spread_deg": 6.0, "volley_gap": 0.5, "friendly_safe": true, "elev": Vector2(-70, 90),
+		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 7, "spread": 3, "spread_deg": 6.0, "volley_gap": 0.5, "side_wind_mult": 2.5, "friendly_safe": true, "elev": Vector2(-70, 90),
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
-		"desc": "ยิง 3 นัดแบบพัด ทีละนัดห่างกัน 0.5 วินาที เล็งได้ทุกมุม กระจายโดนศัตรูได้ถึง 3 ตัว และไม่โดนเพื่อนร่วมทีม",
+		"desc": "ยิง 3 นัดแบบพัด ทีละนัดห่างกัน 0.5 วินาที เล็งได้ทุกมุม ลูกข้างโดนลมแรงกว่าลูกหลัก ไม่โดนเพื่อนร่วมทีม",
 	},
 	"rage": {
 		"name": "Last Stand", "radius": 60.0, "damage": 80.0, "ammo": 1, "hp_ratio_max": 0.4, "elev": Vector2(0, 60),

@@ -15,6 +15,9 @@ var homing_target = null
 var trail: Array = []
 
 
+var wind_mult := 1.0  # Trident side shells drift more with the solar wind
+
+
 func setup(game_ref, start: Vector2, start_vel: Vector2, weapon: String, ignore_time := 0.15) -> void:
 	game = game_ref
 	position = start
@@ -42,7 +45,7 @@ func tick(dt: float) -> void:
 		if w.has("homing") and age > w.homing_delay and _steer(w, h):
 			pass  # homing shells ignore gravity and wind once locked on
 		else:
-			vel += (game.physics.gravity_at(position) + game.physics.wind) * h
+			vel += (game.physics.gravity_at(position) + game.physics.wind * wind_mult) * h
 		position += vel * h
 		if not game.physics.bounds.has_point(position):
 			done = true  # lost in space
