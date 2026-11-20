@@ -414,7 +414,7 @@ func _stats_text(w: Dictionary) -> String:
 	if w.has("shots"):
 		parts.append(L.t("ยิง %d ครั้ง") % w.shots)
 	if w.has("spread"):
-		parts.append(L.t("%d นัดพร้อมกัน") % w.spread)
+		parts.append(L.t("%d นัด") % w.spread)
 	if w.has("root_radius"):
 		parts.append(L.t("วงตาข่าย %d") % w.root_radius)
 	return "   ".join(parts)

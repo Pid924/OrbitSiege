@@ -5,7 +5,7 @@ signal fell(unit)
 
 const MAX_HP := 100
 const WALK_SPEED := 45.0
-const CLIMB := 6
+const CLIMB := 12  # steepest step (px) a unit walks up
 const SAFE_DROP := 28  # walking never steps off a ledge deeper than this
 const AIM_LIMIT := 2.8
 

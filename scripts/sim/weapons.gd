@@ -43,9 +43,9 @@ const DATA := {
 		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
-		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0, "friendly_safe": true, "elev": Vector2(0, 50),
+		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0, "volley_gap": 0.5, "friendly_safe": true, "elev": Vector2(-70, 90),
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
-		"desc": "ยิงออกเป็น 3 นัดพร้อมกันแบบพัด กระจายโดนศัตรูได้ถึง 3 ตัว และไม่โดนเพื่อนร่วมทีม",
+		"desc": "ยิง 3 นัดแบบพัด ทีละนัดห่างกัน 0.5 วินาที เล็งได้ทุกมุม กระจายโดนศัตรูได้ถึง 3 ตัว และไม่โดนเพื่อนร่วมทีม",
 	},
 	"rage": {
 		"name": "Last Stand", "radius": 60.0, "damage": 80.0, "ammo": 1, "hp_ratio_max": 0.4, "elev": Vector2(0, 60),
@@ -55,7 +55,7 @@ const DATA := {
 	"snare": {
 		"name": "Stasis Net", "radius": 22.0, "damage": 10.0, "ammo": 2, "root_radius": 140.0, "elev": Vector2(10, 80),
 		"color": Color(0.45, 0.75, 1.0), "icon": "res://assets/weapons/snare.png",
-		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงจะเดินและหมุนปืนไม่ได้ในตาถัดไปของตัวเอง",
+		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงโดนสุ่มมุมปืนใหม่ และจะเดินและหมุนปืนไม่ได้ในตาถัดไปของตัวเอง",
 	},
 	"mender": {
 		"name": "Nano Mender", "radius": 0.0, "damage": 10.0, "ammo": 2, "heal": 25, "heal_radius": 130.0, "boost": 0.5, "elev": Vector2(10, 80),

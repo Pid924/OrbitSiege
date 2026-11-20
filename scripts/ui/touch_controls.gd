@@ -12,6 +12,12 @@ var picker_cards: Array = []
 var picker_ammo: Array = []
 var fine_button: Button
 var held := 0  # how many on-screen buttons are held
+## Hold buttons track every finger themselves: Godot buttons only follow the first finger,
+## so walking while holding the aim (or fire) button needs this.
+var _holds := {}  # button -> on_change callable
+var _fingers := {}  # finger index (or MOUSE_FINGER) -> button it is on
+const MOUSE_FINGER := -100
+const EMULATED_MOUSE := -1  # device id of mouse events Godot makes from touches
 var picker_opened := false  # this turn; the HUD stops nudging once the player has looked
 
 
@@ -78,16 +84,81 @@ func _hold_button(text: String, pos: Vector2, button_size: Vector2, on_change: C
 	b.add_theme_stylebox_override("normal", _style(Color(0.08, 0.1, 0.2, 0.6), 18))
 	b.add_theme_stylebox_override("hover", _style(Color(0.08, 0.1, 0.2, 0.6), 18))
 	b.add_theme_stylebox_override("pressed", _style(Color(0.25, 0.4, 0.7, 0.85), 18))
-	b.button_down.connect(func():
-		held += 1
-		if player:
-			on_change.call(true))
-	b.button_up.connect(func():
-		held = maxi(0, held - 1)
-		if player:
-			on_change.call(false))
+	b.toggle_mode = true  # "pressed" look while a finger is on it; _input sets it
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_holds[b] = on_change
 	add_child(b)
 	return b
+
+
+func _hold_at(pos: Vector2):
+	for b in _holds:
+		if b.is_visible_in_tree() and b.get_global_rect().has_point(pos):
+			return b
+	return null
+
+
+func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree() or picker.visible:
+		return
+	var finger = null
+	var down := false
+	var moved := false
+	if event is InputEventScreenTouch:
+		finger = event.index
+		down = event.pressed
+	elif event is InputEventScreenDrag:
+		finger = event.index
+		moved = true
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.device == EMULATED_MOUSE:
+			if _hold_at(event.position):
+				get_viewport().set_input_as_handled()  # the touch itself is handled above
+			return
+		finger = MOUSE_FINGER
+		down = event.pressed
+	elif event is InputEventMouseMotion and _fingers.has(MOUSE_FINGER) and event.device != EMULATED_MOUSE:
+		finger = MOUSE_FINGER
+		moved = true
+	else:
+		return
+	var before = _fingers.get(finger)
+	if moved:
+		if before == null:
+			return
+		var now = _hold_at(event.position)
+		if now:
+			_fingers[finger] = now  # sliding from one button to the next
+		else:
+			_fingers.erase(finger)
+	elif down:
+		var b = _hold_at(event.position)
+		if b == null:
+			return
+		_fingers[finger] = b
+	else:
+		if before == null:
+			return
+		_fingers.erase(finger)
+	get_viewport().set_input_as_handled()
+	_sync_holds()
+
+
+## Each hold button is on while at least one finger is on it.
+func _sync_holds() -> void:
+	held = _fingers.size()
+	var on := _fingers.values()
+	for b in _holds:
+		var pressed: bool = b in on
+		if pressed != b.button_pressed:
+			b.set_pressed_no_signal(pressed)
+			if player:
+				_holds[b].call(pressed)
+
+
+func release_all() -> void:
+	_fingers.clear()
+	_sync_holds()
 
 
 func _style(color: Color, radius: int) -> StyleBoxFlat:
@@ -185,3 +256,5 @@ func _process(_delta: float) -> void:
 		picker.visible = false
 		if fine_button.button_pressed:
 			fine_button.button_pressed = false
+		if not _fingers.is_empty():
+			release_all()

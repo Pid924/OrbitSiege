@@ -74,6 +74,7 @@ var team_ammo := [{}, {}]  # weapon id -> uses left, only for weapons with limit
 var shots_left := 0
 var refire_timer := 0.0
 var last_shot := {}
+var volley: Array = []  # shells still to fire one by one: [seconds left, angle offset]
 var crates: Array = []
 ## A round = every living unit plays once. Round 1 starts with a coin toss for the first team;
 ## later rounds start with whoever used the least time last round, teams still taking turns.
@@ -467,12 +468,30 @@ func _launch(shot: Dictionary) -> void:
 	var w := Weapons.get_def(shot.weapon)
 	var count := int(w.get("spread", 1))
 	var step := deg_to_rad(w.get("spread_deg", 0.0))
-	sfx.play("fire")
+	var gap: float = w.get("volley_gap", 0.0)
 	for k in count:
-		active_unit.aim_angle = shot.angle + (k - (count - 1) / 2.0) * step
-		var vel: Vector2 = active_unit.aim_dir() * shot.power * SpacePhysics.MAX_SPEED
-		_spawn_projectile(active_unit.muzzle(), vel, shot.weapon)
+		var offset := (k - (count - 1) / 2.0) * step
+		if gap > 0.0 and k > 0:
+			volley.append([gap * k, offset])  # Trident: the fan goes out one shell at a time
+		else:
+			_launch_one(shot, offset)
+
+
+func _launch_one(shot: Dictionary, offset: float) -> void:
+	sfx.play("fire")
+	active_unit.aim_angle = shot.angle + offset
+	var vel: Vector2 = active_unit.aim_dir() * shot.power * SpacePhysics.MAX_SPEED
+	_spawn_projectile(active_unit.muzzle(), vel, shot.weapon)
 	active_unit.aim_angle = shot.angle
+
+
+func _tick_volley(delta: float) -> void:
+	for v in volley.duplicate():
+		v[0] -= delta
+		if v[0] <= 0.0:
+			volley.erase(v)
+			if active_unit.alive:
+				_launch_one(last_shot, v[1])
 
 
 func _spawn_projectile(pos: Vector2, vel: Vector2, weapon: String, ignore_time := 0.15) -> void:
@@ -547,7 +566,8 @@ func _step(delta: float) -> void:
 					projectiles.erase(p)
 					p.queue_free()
 			_tick_strikes(delta)
-			if projectiles.is_empty() and pending_strikes.is_empty():
+			_tick_volley(delta)
+			if projectiles.is_empty() and pending_strikes.is_empty() and volley.is_empty():
 				if shots_left > 0 and active_unit.alive:
 					refire_timer += delta
 					if refire_timer >= REFIRE_DELAY:
@@ -661,6 +681,9 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		var d := c.distance_to(pos)
 		if w.has("root_radius") and u.team != shooter_team and d < w.root_radius:
 			u.rooted_turns = 1
+			# The net also spins the barrel: a random side and angle, kept until the net wears off.
+			var side := 1 if rng.randf() < 0.5 else -1
+			u.aim_angle = side * deg_to_rad(rng.randf_range(0.0, 160.0))
 			_float_text(c + Vector2(0, -46), L.t("ติดตาข่าย!"), Color(0.6, 0.85, 1.0))
 		if d >= reach:
 			continue
@@ -880,6 +903,7 @@ func _start_turn() -> void:
 	if not weapon_available(current_team, current_weapon_id()):
 		team_weapon[current_team] = 0
 	shots_left = 0
+	volley.clear()
 	refire_timer = 0.0
 	camera.follow(active_unit.position, true)
 	turn_start_time = TURN_TIME + _event_value("time")
