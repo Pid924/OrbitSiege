@@ -1,6 +1,12 @@
 # Translation table for Orbit Siege. Run `python3 tools/strings.py` to regenerate scripts/game/i18n_table.gd
 # and the CJK font subsets. Each row: Thai source text (the key used in code), en, de, nl, ja, zh.
 ROWS = [
+# weapon tooltips
+("กระสุน ∞", "Ammo ∞", "Munition ∞", "Munitie ∞", "弾数 ∞", "弹药 ∞"),
+("ไม่โดนพวกเดียวกัน", "Never hurts your team", "Trifft nie dein Team", "Raakt nooit je team", "味方には当たらない", "不会伤到队友"),
+("ไม่โดนพวกเดียวกัน (ฮีลเพื่อนแทน)", "Never hurts your team (heals them instead)", "Trifft nie dein Team (heilt es stattdessen)", "Raakt nooit je team (geneest het juist)", "味方には当たらない（代わりに回復）", "不会伤到队友（改为治疗）"),
+("ไม่มีดาเมจ แต่พื้นที่ถล่มทำให้พวกเดียวกันร่วงได้", "No damage, but the collapsing ground can drop your own team", "Kein Schaden, aber einstürzender Boden kann dein Team abstürzen lassen", "Geen schade, maar instortende grond kan je eigen team laten vallen", "ダメージなし。ただし崩れた地面で味方も落ちることがある", "无伤害，但塌陷的地面可能让队友掉落"),
+("โดนพวกเดียวกันด้วย ระวัง!", "Hurts your own team too, careful!", "Trifft auch dein Team, Vorsicht!", "Raakt ook je eigen team, pas op!", "味方にも当たる、注意！", "也会伤到队友，小心！"),
 # online
 ("คุณ", "You", "Du", "Jij", "あなた", "你"),
 ("อีกฝ่าย", "Rival", "Gegner", "Tegenstander", "相手", "对手"),
@@ -323,7 +329,7 @@ if __name__ == "__main__":
         chars = set()
         for r in ROWS:
             chars |= set(r[idx])
-        chars |= set("0123456789%:.,!?()+-/ ·")
+        chars |= set("0123456789%:.,!?()+-/ ·∞")  # ∞ (unlimited ammo) comes from the CJK fonts
         text = "".join(sorted(c for c in chars if ord(c) > 32))
         print(lang, len(text), "chars")
         if len(sys.argv) > 1:

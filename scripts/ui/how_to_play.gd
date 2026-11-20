@@ -88,7 +88,7 @@ func build(button_text: String) -> void:
 		icon.position = Vector2(680, row_y)
 		icon.size = Vector2(56, 56)
 		add_child(icon)
-		var uses := L.t("ใช้ได้ไม่จำกัด") if not w.has("ammo") else L.t("%d ครั้งต่อเกม") % int(w.ammo)
+		var uses := L.t("กระสุน ∞") if not w.has("ammo") else L.t("%d ครั้งต่อเกม") % int(w.ammo)
 		var dmg := L.t("ไม่มีดาเมจ") if w.damage <= 0.0 else L.t("ดาเมจ %d") % int(w.damage)
 		var angle := L.t("มุม %d°-%d°") % [int(w.elev.x), int(w.elev.y)] if w.has("elev") else ""
 		var head := _text("%d. %s  ·  %s  ·  %s  ·  %s" % [(i + 1) % 10, w.name, dmg, uses, angle], Vector2(746, row_y - 4), 19, Vector2(830, 26))

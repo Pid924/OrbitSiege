@@ -29,7 +29,7 @@ const DATA := {
 	},
 	"cluster": {
 		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 5, "elev": Vector2(20, 80),
-		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "direct_bomblets": 8, "icon": "res://assets/weapons/cluster.png",
+		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "direct_bomblets": 8, "direct_bomblet_speed": Vector2(60, 120), "icon": "res://assets/weapons/cluster.png",
 		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูก ถ้าโดนตัวศัตรูจัง ๆ แตก 8 ลูก กินพื้นหายไปเยอะ ทำให้ศัตรูร่วงได้",
 	},
 	"driller": {

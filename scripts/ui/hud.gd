@@ -29,6 +29,7 @@ var weapon_name: Label
 var weapon_stats: Label
 var weapon_desc: Label
 var _banner_time := 0.0
+var weapon_tip: PanelContainer  # hover help for a weapon card
 var net_label: Label  # online: waiting / lost connection
 var _net_gone := false
 var touch := false
@@ -224,7 +225,9 @@ func _build_weapon_panel() -> void:
 		card.expand_icon = true
 		card.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card.focus_mode = Control.FOCUS_NONE  # keep SPACE for firing
-		card.tooltip_text = w.name
+		# Hover help shows above the panel (Godot's own tooltip would fall off the screen bottom).
+		card.mouse_entered.connect(_show_tip.bind(card, w))
+		card.mouse_exited.connect(func(): weapon_tip.visible = false)
 		card.pressed.connect(_on_card_pressed.bind(i))
 		panel.add_child(card)
 		card.visible = not touch
@@ -343,7 +346,7 @@ func _process(delta: float) -> void:
 		var selected: bool = id == current
 		var left: int = game.ammo_left(view_team, id)
 		var usable: bool = game.weapon_available(view_team, id) if game.current_team == view_team else left != 0
-		ammo_labels[i].text = L.t("ไม่อั้น") if left < 0 else "x%d" % left
+		ammo_labels[i].text = "∞" if left < 0 else "x%d" % left
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
 			ammo_labels[i].text = "HP<=40%"
 		elif Weapons.get_def(id).has("min_round") and game.round_number < Weapons.get_def(id).min_round and left != 0:
@@ -393,6 +396,48 @@ func _update_weapon_hint(delta: float) -> void:
 	_hint_pulse += delta
 	var glow := 0.5 + 0.5 * sin(_hint_pulse * 5.0)
 	current_card.modulate = Color(1, 1, 1).lerp(Color(1.6, 1.4, 0.7), glow) if show else Color.WHITE
+
+
+func _show_tip(card: Control, w: Dictionary) -> void:
+	if weapon_tip == null:
+		weapon_tip = PanelContainer.new()
+		var box := StyleBoxFlat.new()
+		box.bg_color = Color(0.03, 0.05, 0.12, 0.96)
+		box.border_color = Color(1, 1, 1, 0.3)
+		box.set_border_width_all(2)
+		box.set_corner_radius_all(8)
+		box.set_content_margin_all(12)
+		weapon_tip.add_theme_stylebox_override("panel", box)
+		weapon_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		weapon_tip.set_meta("fit_skip", true)
+		var text := Label.new()
+		text.add_theme_font_size_override("font_size", 17)
+		weapon_tip.add_child(text)
+		add_child(weapon_tip)
+	var label: Label = weapon_tip.get_child(0)
+	label.text = _weapon_tooltip(w)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	weapon_tip.reset_size()
+	var rect := card.get_global_rect()
+	var tip_size := weapon_tip.get_combined_minimum_size()
+	var screen := get_viewport().get_visible_rect().size
+	weapon_tip.position = Vector2(clampf(rect.position.x, 8.0, screen.x - tip_size.x - 8.0), rect.position.y - tip_size.y - 24.0)
+	weapon_tip.visible = true
+
+
+## Hover text for a weapon card: what it does, its numbers, and whether it hurts your team.
+func _weapon_tooltip(w: Dictionary) -> String:
+	var friendly: String
+	if w.get("friendly_safe", false):
+		friendly = L.t("ไม่โดนพวกเดียวกัน")
+	elif w.has("heal"):
+		friendly = L.t("ไม่โดนพวกเดียวกัน (ฮีลเพื่อนแทน)")
+	elif w.damage <= 0.0:
+		friendly = L.t("ไม่มีดาเมจ แต่พื้นที่ถล่มทำให้พวกเดียวกันร่วงได้")
+	else:
+		friendly = L.t("โดนพวกเดียวกันด้วย ระวัง!")
+	var uses: String = L.t("กระสุน ∞") if not w.has("ammo") else L.t("%d ครั้งต่อเกม") % int(w.ammo)
+	return "%s\n%s\n%s\n%s · %s" % [w.name, L.t(w.desc), _stats_text(w), uses, friendly]
 
 
 func _stats_text(w: Dictionary) -> String:

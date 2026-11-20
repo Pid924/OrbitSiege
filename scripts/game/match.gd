@@ -704,9 +704,11 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 	if w.has("bomblets"):
 		var back: Vector2 = -vel.normalized() if vel.length_squared() > 1.0 else physics.up_at(pos)
 		var count: int = int(w.get("direct_bomblets", w.bomblets)) if direct else int(w.bomblets)
+		# A direct hit keeps its extra bomblets close, so they all land around the target.
+		var speed: Vector2 = w.get("direct_bomblet_speed", Vector2(180, 300)) if direct else Vector2(180, 300)
 		for i in count:
 			var dir := back.rotated(rng.randf_range(-1.1, 1.1))
-			_spawn_projectile(pos + dir * 6.0, dir * rng.randf_range(180.0, 300.0), "bomblet", 0.05)
+			_spawn_projectile(pos + dir * 6.0, dir * rng.randf_range(speed.x, speed.y), "bomblet", 0.05)
 	var fx := Explosion.new()
 	fx.setup(pos, maxf(radius, w.get("root_radius", w.get("heal_radius", 0.0)) * 0.7), w.color)
 	add_child(fx)
@@ -758,7 +760,21 @@ func _drop_crate() -> void:
 		return
 	var kind := "ammo"
 	var pos: Vector2
-	if physics.planets.is_empty():
+	var placed := false
+	# Aim at ground someone can walk to, and check the crate really lands there.
+	var spots := _reachable_spots()
+	for attempt in 12:
+		if spots.is_empty():
+			break
+		var target: Vector2 = spots[rng.randi() % spots.size()]
+		var start := _crate_start(target)
+		if _crate_lands_near(start, target):
+			pos = start
+			placed = true
+			break
+	if placed:
+		pass
+	elif physics.planets.is_empty():
 		pos = Vector2(rng.randf_range(80.0, world_size.x - 80.0), -60.0)
 	else:
 		var p: Dictionary = physics.planets[rng.randi() % physics.planets.size()]
@@ -768,6 +784,56 @@ func _drop_crate() -> void:
 	add_child(crate)
 	crates.append(crate)
 	_float_text(pos.clamp(Vector2(60, 60), world_size - Vector2(60, 60)), L.t("กล่องเสบียงกำลังตก!"), Color(1, 0.85, 0.5))
+
+
+## Ground spots a living unit can walk to, one every ~24 px along its walk both ways.
+func _reachable_spots() -> Array:
+	var spots := []
+	var ghost := Unit.new()
+	ghost.setup(-1, 0, "", Color.WHITE, physics, terrain)
+	for u in units:
+		if not u.alive or not u.grounded:
+			continue
+		for dir in [-1, 1]:
+			ghost.position = u.position
+			ghost.grounded = true
+			var walked := 0.0
+			for step in 1200:  # up to ~900 px each way
+				ghost.up = physics.up_at(ghost.position)
+				var before: Vector2 = ghost.position
+				ghost.walk(dir, 1.0 / 60.0)
+				if ghost.position == before:
+					break  # wall or a drop too deep
+				walked += before.distance_to(ghost.position)
+				if walked >= 24.0:
+					spots.append(ghost.position)
+					walked = 0.0
+	ghost.free()
+	return spots
+
+
+## Where a crate must start to fall onto `target`.
+func _crate_start(target: Vector2) -> Vector2:
+	if physics.planets.is_empty():
+		return Vector2(target.x, -60.0)
+	var c: Vector2 = physics.dominant_planet(target).center
+	return c + (target - c).normalized() * (target.distance_to(c) + 260.0)
+
+
+## Drops a test crate (same physics) and checks it comes to rest near `target`.
+func _crate_lands_near(start: Vector2, target: Vector2) -> bool:
+	var test := Crate.new()
+	test.setup(start, "ammo", physics, terrain)
+	var ok := false
+	for step in 60 * 40:
+		test.tick(1.0 / 60.0)
+		if test.gone:
+			break
+		if test.landed:
+			ok = test.position.distance_to(target) < 40.0
+			break
+	test.free()
+	return ok
 
 
 func _tick_crates(delta: float) -> void:

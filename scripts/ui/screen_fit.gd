@@ -42,8 +42,8 @@ func _apply_deferred() -> void:
 func _fit(root: Node, screen: Vector2, safe: Vector2, center: bool) -> void:
 	var extra := screen - BASE
 	for c in root.get_children():
-		if not c is Control:
-			continue
+		if not c is Control or c.has_meta("fit_skip"):
+			continue  # fit_skip: the control places itself (e.g. hover help)
 		if not c.has_meta("fit_base"):
 			c.set_meta("fit_base", Rect2(c.position, c.size))
 		var base: Rect2 = c.get_meta("fit_base")

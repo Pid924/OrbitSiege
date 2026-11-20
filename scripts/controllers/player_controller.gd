@@ -62,6 +62,8 @@ func _physics_process(delta: float) -> void:
 		var speed: float = GameSettings.AIM_OPTIONS[GameSettings.aim_speed][1]
 		if Input.is_physical_key_pressed(KEY_SHIFT) or touch_fine:
 			speed *= 0.25
+		if charging:
+			speed *= lerpf(1.0, 0.25, charge)  # fine-tune the angle while the bar fills; slowest at max
 		var side: int = game.aim_side(unit)
 		aim_pred = game.clamp_aim(aim_pred + aim * speed * delta * side, side)
 		game.submit_command({"type": "aim", "team": team, "angle": aim_pred})
