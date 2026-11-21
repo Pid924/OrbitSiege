@@ -36,7 +36,7 @@ const DRIFT_GRAVITY := 260.0
 const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a unit is lost in the gas giant
 const REFIRE_DELAY := 0.35
 const MAX_WIND := 55.0
-const WARP_CRATE_TURNS := 2
+const CRATE_TURNS := 4  # a crate nobody picks up within this many turns disappears
 const MAX_CRATES := 6
 const EVENT_CHANCE := 0.4
 ## Round events last a whole round. Each has a random size: damage and blast -20%..+20%
@@ -859,8 +859,25 @@ func _drop_crate(kind := "") -> void:
 		crate_drops += 1
 	var pos: Vector2
 	var placed := false
-	# Aim at ground someone can walk to, and check the crate really lands there.
 	var spots := _reachable_spots()
+	if kind == "warp":
+		# Warp crates pop up right on ground someone can walk to (no parachute), away from the units.
+		var free := spots.filter(func(sp):
+			for u in units:
+				if u.alive and u.position.distance_to(sp) < 60.0:
+					return false
+			return true)
+		if not free.is_empty():
+			var at: Vector2 = free[rng.randi() % free.size()]
+			var w := Crate.new()
+			w.setup(at, kind, physics, terrain)
+			w.landed = true
+			w.expire_turn = turn_number + CRATE_TURNS
+			add_child(w)
+			crates.append(w)
+			_float_text(at + Vector2(0, -40), L.t("กล่องวาร์ปโผล่ขึ้นมา!"), Color(0.5, 1.0, 0.95))
+			return
+	# Aim at ground someone can walk to, and check the crate really lands there.
 	for attempt in 12:
 		if spots.is_empty():
 			break
@@ -879,8 +896,7 @@ func _drop_crate(kind := "") -> void:
 		pos = p.center + Vector2.from_angle(rng.randf() * TAU) * (p.radius + 260.0)
 	var crate := Crate.new()
 	crate.setup(pos, kind, physics, terrain)
-	if kind == "warp":
-		crate.expire_turn = turn_number + WARP_CRATE_TURNS
+	crate.expire_turn = turn_number + CRATE_TURNS
 	add_child(crate)
 	crates.append(crate)
 	var drop_text := L.t("กล่องเสบียงกำลังตก!") if kind == "ammo" else (L.t("กล่องพลังกำลังตก!") if kind == "buff" else L.t("กล่องวาร์ปกำลังตก!"))
@@ -950,12 +966,12 @@ func _tick_crates(delta: float) -> void:
 				break
 
 
-## Warp crates nobody picked up within WARP_CRATE_TURNS turns disappear.
+## Crates nobody picked up within CRATE_TURNS turns disappear.
 func _expire_crates() -> void:
 	for c in crates.duplicate():
 		if c.gone or c.expire_turn < 0 or turn_number < c.expire_turn:
 			continue
-		_float_text(c.position + Vector2(0, -40), L.t("กล่องวาร์ปหายไป"), Color(0.5, 1.0, 0.95))
+		_float_text(c.position + Vector2(0, -40), L.t("กล่องวาร์ปหายไป") if c.kind == "warp" else L.t("กล่องหายไป"), Color(1, 0.85, 0.5))
 		crates.erase(c)
 		c.queue_free()
 

@@ -54,6 +54,9 @@ func generate_islands(rng: RandomNumberGenerator, cfg: Dictionary) -> Array:
 	# each row starts at its own offset so the gaps do not line up.
 	var rows: Array = cfg.get("tiers", [-1.0])
 	for tier in rows.size():
+		if cfg.get("solid_floor", false) and tier == rows.size() - 1:
+			_add_floor(islands, rows[tier] * height, tier, rng, cfg, surface, jag, speck, PALETTES[(palette_index + tier) % PALETTES.size()])
+			continue
 		var x := rng.randf_range(40.0, 90.0) if tier == 0 else rng.randf_range(40.0, island_width.x * 0.8)
 		while x < width - island_width.x * 0.6:
 			var w := minf(rng.randf_range(island_width.x, island_width.y), width - 40.0 - x)
@@ -148,6 +151,18 @@ func _step_lift(island: Dictionary, x: float) -> float:
 		if x >= s[0] and x < s[1]:
 			return s[2]
 	return island.steps[-1][2]
+
+
+## One unbroken strip of ground across the whole map (bottom row of "tiers" with solid_floor).
+## Painted as a single island whose drooping ends sit past the map edges; listed as two halves
+## so each team still spawns on its own side.
+func _add_floor(islands: Array, base: float, tier: int, rng: RandomNumberGenerator, cfg: Dictionary, surface: FastNoiseLite, jag: FastNoiseLite, speck: FastNoiseLite, palette: Array) -> void:
+	var depth: Vector2 = cfg.depth
+	var d := rng.randf_range(depth.x, depth.y)
+	_paint_island({"x0": -60.0, "x1": width + 60.0, "base": base, "depth": d}, surface, jag, speck, palette)
+	var mid := width / 2.0
+	islands.append({"x0": 40.0, "x1": mid - 40.0, "base": base, "depth": d, "tier": tier})
+	islands.append({"x0": mid + 40.0, "x1": width - 40.0, "base": base, "depth": d, "tier": tier})
 
 
 func _paint_island(island: Dictionary, surface: FastNoiseLite, jag: FastNoiseLite, speck: FastNoiseLite, palette: Array) -> void:
