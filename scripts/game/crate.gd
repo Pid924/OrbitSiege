@@ -56,9 +56,14 @@ func _draw() -> void:
 		draw_arc(Vector2(sway, -40), 22.0, PI, TAU, 16, Color(1, 0.6, 0.3), 6.0)
 		for x in [-20.0, 0.0, 20.0]:
 			draw_line(Vector2(sway + x, -40), Vector2(x * 0.4, -18), Color(1, 1, 1, 0.6), 1.0)
+	# Supply crates are brown with "?"; buff crates are violet with "+" (they work on pickup).
+	var buff := kind == "buff"
+	var fill := Color(0.42, 0.25, 0.62) if buff else Color(0.55, 0.42, 0.25)
+	var trim := Color(0.85, 0.7, 1.0) if buff else Color(0.95, 0.8, 0.45)
 	var body := Rect2(-12, -22, 24, 22)
-	draw_rect(body, Color(0.55, 0.42, 0.25))
-	draw_rect(body, Color(0.95, 0.8, 0.45), false, 2.0)
-	draw_line(Vector2(-12, -11), Vector2(12, -11), Color(0.95, 0.8, 0.45), 2.0)
+	draw_rect(body, fill)
+	draw_rect(body, trim, false, 2.0)
+	draw_line(Vector2(-12, -11), Vector2(12, -11), trim, 2.0)
 	var glow := 0.6 + 0.4 * sin(_time * 4.0)
-	draw_string(ThemeDB.fallback_font, Vector2(-5, -6), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 1, 0.7, glow))
+	var mark_color := Color(1, 0.85, 1.0, glow) if buff else Color(1, 1, 0.7, glow)
+	draw_string(ThemeDB.fallback_font, Vector2(-5, -6), "+" if buff else "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, mark_color)

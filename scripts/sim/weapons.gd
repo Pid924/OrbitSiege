@@ -22,6 +22,12 @@ extends RefCounted
 const LIST := ["plasma", "cluster", "driller", "double", "triple", "rage", "snare", "mender", "seeker", "sky"]
 
 const DATA := {
+	# Not in LIST: the shot a teleport crate turns your next shot into.
+	"teleport": {
+		"name": "Teleport", "radius": 0.0, "damage": 0.0, "teleport": true, "elev": Vector2(-70, 90),
+		"color": Color(0.75, 0.55, 1.0), "icon": "res://assets/weapons/seeker.png",
+		"desc": "วาร์ปไปจุดที่กระสุนตก ถ้าไปยืนตรงนั้นไม่ได้ถือว่าพลาด",
+	},
 	"plasma": {
 		"name": "Plasma Shell", "radius": 40.0, "damage": 45.0, "elev": Vector2(0, 45),
 		"color": Color(0.4, 0.9, 1.0), "icon": "res://assets/weapons/plasma.png",
@@ -33,9 +39,9 @@ const DATA := {
 		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูก ถ้าโดนตัวศัตรูจัง ๆ แตก 8 ลูก กินพื้นหายไปเยอะ ทำให้ศัตรูร่วงได้",
 	},
 	"driller": {
-		"name": "Void Driller", "radius": 34.0, "carve": 78.0, "damage": 0.0, "ammo": 2, "min_round": 2, "elev": Vector2(-60, 45),
-		"color": Color(0.8, 0.45, 1.0), "drill_time": 0.8, "drill_width": 22.0, "icon": "res://assets/weapons/driller.png",
-		"desc": "ไม่มีดาเมจ เจาะทะลุพื้นเป็นอุโมงค์กว้าง แล้วทลายพื้นเป็นหลุมใหญ่ (รัศมี 78) ทำให้ศัตรูร่วง ใช้ได้ตั้งแต่รอบ 2",
+		"name": "Void Driller", "radius": 34.0, "carve": 78.0, "damage": 10.0, "direct_bonus": 20.0, "ammo": 2, "min_round": 2, "elev": Vector2(-60, 45),
+		"color": Color(0.8, 0.45, 1.0), "drill_time": 0.8, "drill_width": 30.0, "icon": "res://assets/weapons/driller.png",
+		"desc": "เจาะทะลุพื้นเป็นอุโมงค์กว้าง แล้วทลายพื้นเป็นหลุมใหญ่ (รัศมี 78) ทำให้ศัตรูร่วง ดาเมจ 10 ถ้าโดนตัวก่อนเจาะพื้น +20 ใช้ได้ตั้งแต่รอบ 2",
 	},
 	"double": {
 		"name": "Twin Strike", "radius": 30.0, "damage": 40.0, "ammo": 2, "shots": 2, "elev": Vector2(0, 60),

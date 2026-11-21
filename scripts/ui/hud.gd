@@ -18,6 +18,7 @@ var teams_label: Label
 var team_bars: TeamBars
 var stage_label: Label
 var event_label: Label
+var buff_label: Label  # crate buffs and poison on the unit whose turn it is
 var help: Label
 var banner: Label
 var power_bar: ProgressBar
@@ -118,6 +119,10 @@ func _ready() -> void:
 	event_label.size = Vector2(600, 26)
 	event_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	event_label.add_theme_color_override("font_color", Color(1, 0.85, 0.4))
+	buff_label = _label(Vector2(400, 62), 18)
+	buff_label.size = Vector2(800, 26)
+	buff_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	buff_label.add_theme_color_override("font_color", Color(0.85, 0.7, 1.0))
 	help = _label(Vector2(16, 872), 13)
 	help.modulate = Color(1, 1, 1, 0.6)
 	help.text = L.t("ปุ่มซ้าย/ขวา = เดิน   ปุ่มขึ้น/ลง = เล็ง   กดค้างปุ่มยิง = ชาร์จ ปล่อย = ยิง   แตะรูปอาวุธ = เปลี่ยน   ลากจอ = เลื่อนกล้อง   สองนิ้วถ่าง / +- = ซูม") if touch else L.t("A/D เดิน   W/S เล็ง (Shift = ละเอียด)   SPACE ค้าง = ชาร์จ ปล่อย = ยิง   Q/E, 1-9, 0 หรือคลิก = อาวุธ   ล้อเมาส์ / +- = ซูม   คลิกขวาลาก = เลื่อนกล้อง   P = หยุด   Esc = เมนู")
@@ -331,6 +336,9 @@ func _process(delta: float) -> void:
 		order_label.text = L.t("ต่อไปในรอบนี้: ") + ("  ›  ".join(next) if not next.is_empty() else L.t("จบรอบแล้วขึ้นรอบใหม่"))
 		info.modulate = game.TEAM_COLORS[game.current_team]
 		power_bar.value = u.charge
+		buff_label.text = _buff_text(u)
+	else:
+		buff_label.text = ""
 	var current: String = game.current_weapon_id()
 	var w := Weapons.get_def(current)
 	weapon_name.text = w.name
@@ -425,6 +433,21 @@ func _show_tip(card: Control, w: Dictionary) -> void:
 	weapon_tip.visible = true
 
 
+func _buff_text(u) -> String:
+	var parts := []
+	if u.buffs.has("teleport"):
+		parts.append(L.t("นัดนี้เป็นกระสุนวาร์ป (เลือกอาวุธไม่ได้)"))
+	if u.buffs.has("dmg"):
+		parts.append(L.t("ดาเมจ +%d%%") % roundi(u.buffs.dmg * 100.0))
+	if u.buffs.has("double"):
+		parts.append(L.t("ยิงซ้ำ"))
+	if u.buffs.has("poison"):
+		parts.append(L.t("กระสุนพิษ"))
+	if u.poison_turns > 0:
+		parts.append(L.t("ติดพิษอีก %d ตา") % u.poison_turns)
+	return (L.t("สถานะ: ") + "  ·  ".join(parts)) if not parts.is_empty() else ""
+
+
 ## Hover text for a weapon card: what it does, its numbers, and whether it hurts your team.
 func _weapon_tooltip(w: Dictionary) -> String:
 	var friendly: String
@@ -451,6 +474,8 @@ func _stats_text(w: Dictionary) -> String:
 		parts.append(L.t("หลุมกว้าง %d") % w.get("carve", w.radius))
 	else:
 		parts.append(L.t("ดาเมจ %d") % w.damage)
+		if w.has("direct_bonus"):
+			parts.append(L.t("+%d ถ้าโดนตรง") % w.direct_bonus)
 		parts.append(L.t("รัศมีระเบิด %d") % w.radius)
 	if w.has("elev"):
 		parts.append(L.t("มุม %d°-%d°") % [int(w.elev.x), int(w.elev.y)])

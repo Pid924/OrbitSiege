@@ -74,6 +74,12 @@ var team_ammo := [{}, {}]  # weapon id -> uses left, only for weapons with limit
 var shots_left := 0
 var refire_timer := 0.0
 var last_shot := {}
+var shot_poison := false  # this shot leaves poison where it bursts (crate buff)
+var crate_drops := 0  # crates alternate: supply (ammo) then buff
+const BUFF_KINDS := ["hp", "dmg", "double", "teleport", "poison"]
+const POISON_DAMAGE := 10
+const POISON_TURNS := 3
+const POISON_RADIUS := 140.0  # same as the Stasis Net
 var volley: Array = []  # shells still to fire one by one: [seconds left, angle offset]
 var crates: Array = []
 ## A round = every living unit plays once. Round 1 starts with a coin toss for the first team;
@@ -439,7 +445,11 @@ func _apply_command(cmd: Dictionary) -> void:
 
 func _fire(angle: float, power: float) -> void:
 	var weapon := current_weapon_id()
-	if not weapon_available(current_team, weapon):
+	var buffs: Dictionary = active_unit.buffs
+	if buffs.has("teleport"):
+		weapon = "teleport"  # the teleport crate replaces this shot, whatever was picked
+		buffs.erase("teleport")
+	elif not weapon_available(current_team, weapon):
 		weapon = Weapons.LIST[0]
 		team_weapon[current_team] = 0
 	if team_ammo[current_team].has(weapon):
@@ -456,6 +466,12 @@ func _fire(angle: float, power: float) -> void:
 		shot_dmg_mult *= 1.0 + team_boost[current_team]
 		team_boost[current_team] = 0.0
 	shot_radius_mult = 1.0 + _event_value("blast") / 100.0
+	shot_dmg_mult *= 1.0 + float(buffs.get("dmg", 0.0))
+	if buffs.has("double"):
+		shots_left += 1  # fire the same shot once more, automatically
+	shot_poison = buffs.has("poison")
+	for k in ["dmg", "double", "poison"]:
+		buffs.erase(k)
 	_launch(last_shot)
 	# Special weapons are one-off picks: the next turn starts back on weapon 1.
 	team_weapon[current_team] = 0
@@ -657,6 +673,11 @@ func unit_hit_points() -> PackedVector2Array:
 
 func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := false) -> void:
 	var w := Weapons.get_def(weapon_id)
+	if shot_poison:
+		_spread_poison(pos)
+	if w.get("teleport", false):
+		_teleport(pos)
+		return
 	if w.has("strike_width"):
 		_call_sky_strike(pos, weapon_id)
 		return
@@ -698,7 +719,10 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 				_float_text(c + Vector2(0, -30), "+%d" % healed, Color(0.5, 1.0, 0.55))
 			continue
 		var f := 1.0 - d / reach
-		var dmg := int(round(w.damage * f * shot_dmg_mult))
+		var base: float = w.damage
+		if direct and u == unit_at(pos):
+			base += w.get("direct_bonus", 0.0)  # Void Driller hitting a unit before it drills
+		var dmg := int(round(base * f * shot_dmg_mult))
 		if dmg <= 0:
 			continue
 		u.take_damage(dmg)
@@ -716,6 +740,51 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 	fx.setup(pos, maxf(radius, w.get("root_radius", w.get("heal_radius", 0.0)) * 0.7), w.color)
 	add_child(fx)
 	camera.shake = maxf(camera.shake, radius * 0.3)
+
+
+## Poison crate: enemies near the burst lose POISON_DAMAGE at the start of their next 3 turns.
+func _spread_poison(pos: Vector2) -> void:
+	var fx := Explosion.new()
+	fx.setup(pos, POISON_RADIUS * 0.7, Color(0.4, 1.0, 0.35))
+	add_child(fx)
+	for u in units:
+		if u.alive and u.team != current_team and u.body_center().distance_to(pos) < POISON_RADIUS:
+			u.poison_turns = POISON_TURNS
+			_float_text(u.body_center() + Vector2(0, -62), L.t("ติดพิษ!"), Color(0.5, 1.0, 0.4))
+
+
+## Teleport crate: the shooter appears where the shell landed, if there is room to stand.
+func _teleport(pos: Vector2) -> void:
+	var u = active_unit
+	if u == null or not u.alive:
+		return
+	var up: Vector2 = physics.up_at(pos)
+	var spot = null
+	for k in 48:  # climb out of the ground along "up" to the first free pixel
+		var p: Vector2 = pos + up * k
+		if not terrain.is_solid(p):
+			if terrain.is_solid(p - up) and _room_to_stand(p, up):
+				spot = p
+			break
+	if spot == null or (abyss_y < INF and spot.y > abyss_y - 20.0):
+		_float_text(pos + Vector2(0, -30), L.t("วาร์ปพลาด!"), Color(0.8, 0.6, 1.0))
+		return
+	u.position = spot
+	u.velocity = Vector2.ZERO
+	u.grounded = true
+	u.up = up
+	sfx.play("zap")
+	var fx := Explosion.new()
+	fx.setup(spot, 40.0, Color(0.75, 0.55, 1.0))
+	add_child(fx)
+	_float_text(spot + Vector2(0, -50), L.t("วาร์ป!"), Color(0.8, 0.65, 1.0))
+
+
+func _room_to_stand(p: Vector2, up: Vector2) -> bool:
+	for k in range(1, 20):
+		if terrain.is_solid(p + up * k):
+			return false
+	return true
 
 
 func _call_sky_strike(pos: Vector2, weapon_id: String) -> void:
@@ -761,7 +830,8 @@ func _drop_crate() -> void:
 	crates = crates.filter(func(c): return not c.gone)
 	if crates.size() >= MAX_CRATES:
 		return
-	var kind := "ammo"
+	var kind := "ammo" if crate_drops % 2 == 0 else "buff"  # the two kinds take turns
+	crate_drops += 1
 	var pos: Vector2
 	var placed := false
 	# Aim at ground someone can walk to, and check the crate really lands there.
@@ -786,7 +856,8 @@ func _drop_crate() -> void:
 	crate.setup(pos, kind, physics, terrain)
 	add_child(crate)
 	crates.append(crate)
-	_float_text(pos.clamp(Vector2(60, 60), world_size - Vector2(60, 60)), L.t("กล่องเสบียงกำลังตก!"), Color(1, 0.85, 0.5))
+	var drop_text := L.t("กล่องเสบียงกำลังตก!") if kind == "ammo" else L.t("กล่องพลังกำลังตก!")
+	_float_text(pos.clamp(Vector2(60, 60), world_size - Vector2(60, 60)), drop_text, Color(1, 0.85, 0.5))
 
 
 ## Ground spots a living unit can walk to, one every ~24 px along its walk both ways.
@@ -854,6 +925,11 @@ func _tick_crates(delta: float) -> void:
 
 func _collect(crate, unit) -> void:
 	sfx.play("pickup")
+	if crate.kind == "buff":
+		_collect_buff(unit)
+		crates.erase(crate)
+		crate.queue_free()
+		return
 	var id: String = AMMO_LOOT[rng.randi() % AMMO_LOOT.size()]
 	if team_ammo[unit.team].has(id):  # unlimited (debug) stays unlimited
 		team_ammo[unit.team][id] += 1
@@ -861,6 +937,33 @@ func _collect(crate, unit) -> void:
 	_float_text(unit.body_center() + Vector2(0, -50), text, Color(0.6, 1.0, 0.6))
 	crates.erase(crate)
 	crate.queue_free()
+
+
+## Buff crate: works at once, no button. Shot buffs last until the end of the unit's turn
+## (its next turn if it picks the crate up on someone else's turn or after firing).
+func _collect_buff(unit) -> void:
+	var kind: String = BUFF_KINDS[rng.randi() % BUFF_KINDS.size()]
+	var text := ""
+	match kind:
+		"hp":
+			var healed: int = unit.heal(rng.randi_range(15, 40))
+			text = L.t("+%d HP") % healed
+		"dmg":
+			var pct := rng.randi_range(10, 50)
+			unit.buffs["dmg"] = pct / 100.0
+			text = L.t("นัดถัดไปดาเมจ +%d%%") % pct
+		"double":
+			unit.buffs["double"] = true
+			text = L.t("นัดถัดไปยิงซ้ำอัตโนมัติ")
+		"teleport":
+			unit.buffs["teleport"] = true
+			text = L.t("นัดถัดไปเป็นกระสุนวาร์ป")
+		"poison":
+			unit.buffs["poison"] = true
+			text = L.t("นัดถัดไปมีพิษ")
+	if unit == active_unit and phase != Phase.AIMING:
+		unit.buff_keep = true  # already fired this turn: keep it for the next one
+	_float_text(unit.body_center() + Vector2(0, -50), text, Color(1.0, 0.8, 0.35))
 
 
 func _on_unit_fell(unit) -> void:
@@ -892,6 +995,18 @@ func _end_turn() -> void:
 		active_unit.charge = 0.0
 		active_unit.rooted_turns = maxi(0, active_unit.rooted_turns - 1)
 		time_used[active_unit.unit_id] = turn_start_time - maxf(turn_time_left, 0.0)
+		# Shot buffs not used this turn are gone (teleport waits for the next shot).
+		if active_unit.buff_keep:
+			active_unit.buff_keep = false
+		else:
+			for k in ["dmg", "double", "poison"]:
+				active_unit.buffs.erase(k)
+	if not _check_game_over():
+		_start_turn()
+
+
+## Ends the match when a team has nobody left. Returns true if it ended.
+func _check_game_over() -> bool:
 	var a := alive_count(0)
 	var b := alive_count(1)
 	if a == 0 or b == 0:
@@ -902,8 +1017,8 @@ func _end_turn() -> void:
 			print("game over after %d turns (%d rounds), winner: %d" % [turn_number, round_number, winner])
 		sfx.play("win" if winner == local_team else "lose")
 		game_over.emit(winner)
-		return
-	_start_turn()
+		return true
+	return false
 
 
 func _start_round() -> void:
@@ -960,6 +1075,12 @@ func _start_turn() -> void:
 		while round_queue.is_empty():
 			_start_round()
 		var u = round_queue.pop_front()
+		if u.alive and u.poison_turns > 0:
+			u.poison_turns -= 1
+			u.take_damage(POISON_DAMAGE)
+			_float_text(u.body_center() + Vector2(0, -30), L.t("พิษ -%d") % POISON_DAMAGE, Color(0.5, 1.0, 0.4))
+			if not u.alive and _check_game_over():
+				return
 		if u.alive:
 			active_unit = u
 	current_team = active_unit.team
