@@ -34,7 +34,7 @@ const DATA := {
 		"desc": "กระสุนพลาสมามาตรฐาน ระเบิดวงกว้าง ดาเมจสูง ใช้ได้ไม่จำกัด",
 	},
 	"cluster": {
-		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 3, "elev": Vector2(20, 80),
+		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 3, "friendly_safe": true, "elev": Vector2(20, 80),
 		"color": Color(1.0, 0.75, 0.3), "bomblets": 5, "direct_bomblets": 8, "direct_bomblet_speed": Vector2(60, 120), "icon": "res://assets/weapons/cluster.png",
 		"desc": "กระทบแล้วแตกเป็นลูกย่อย 5 ลูก ถ้าโดนตัวศัตรูจัง ๆ แตก 8 ลูก กินพื้นหายไปเยอะ ทำให้ศัตรูร่วงได้",
 	},
@@ -61,7 +61,7 @@ const DATA := {
 	"snare": {
 		"name": "Stasis Net", "radius": 22.0, "damage": 10.0, "ammo": 2, "root_radius": 140.0, "elev": Vector2(10, 80),
 		"color": Color(0.45, 0.75, 1.0), "icon": "res://assets/weapons/snare.png",
-		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงโดนสุ่มมุมปืนใหม่ และจะเดินและหมุนปืนไม่ได้ในตาถัดไปของตัวเอง",
+		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงโดนสุ่มมุมปืนใหม่ และจะเดินและหมุนปืนไม่ได้ในตาถัดไปของตัวเอง\nถ้าโดนซ้ำตอนติดตาข่ายอยู่ จะถูกข้ามตาไปเลย และได้คิวช้าสุดในรอบหน้า",
 	},
 	"mender": {
 		"name": "Nano Mender", "radius": 0.0, "damage": 10.0, "ammo": 2, "heal": 25, "heal_radius": 130.0, "boost": 0.5, "elev": Vector2(10, 80),
@@ -82,7 +82,7 @@ const DATA := {
 	},
 	# Spawned by the cluster shell, not selectable.
 	"bomblet": {
-		"name": "Bomblet", "radius": 20.0, "carve": 32.0, "damage": 14.0,
+		"name": "Bomblet", "radius": 20.0, "carve": 32.0, "damage": 14.0, "friendly_safe": true,  # Star Cluster spares teammates
 		"color": Color(1.0, 0.55, 0.2),
 	},
 }

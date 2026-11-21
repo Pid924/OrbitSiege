@@ -242,7 +242,7 @@ func _walk_step(delta: float) -> void:
 		state = State.WAIT
 		_fill_candidates()  # the view changed: search again from here
 		return
-	game.submit_command({"type": "walk", "team": team, "dir": walk_dir})
+	game.submit_command({"type": "walk", "team": team, "dir": walk_dir, "safe": true})  # bots never walk off ledges
 
 
 func _score_shot(angle: float, power: float, targets: PackedVector2Array) -> float:

@@ -6,7 +6,7 @@ signal fell(unit)
 const MAX_HP := 100
 const WALK_SPEED := 45.0
 const CLIMB := 12  # steepest step (px) a unit walks up
-const SAFE_DROP := 28  # walking never steps off a ledge deeper than this
+const SAFE_DROP := 28  # deeper than this, walking steps off the ledge and falls (unless safe)
 const AIM_LIMIT := 2.8
 
 var unit_id := 0
@@ -27,6 +27,7 @@ var buffs := {}
 var buff_keep := false  # picked up after firing this turn: keep through this turn's end
 var barrier := false  # crate barrier: blocks the next shell damage, until this unit's next turn
 var rooted_turns := 0  # own turns left during which this unit cannot walk
+var skip_next := false  # netted again while netted: its next turn is skipped
 var fell_into_core := false
 var aim_range := Vector2(-70, 90)  # allowed elevation above level (weapon range + ground tilt), for drawing
 var tilt := 0.0  # degrees the ground rises toward the unit's local right, see ground_tilt()
@@ -101,7 +102,8 @@ func _land() -> void:
 		position += up
 
 
-func walk(dir: int, dt: float) -> void:
+## `safe` stops at a ledge instead of walking off it (bots, and the reachability scan).
+func walk(dir: int, dt: float, safe := false) -> void:
 	if not grounded or not alive or dir == 0 or rooted_turns > 0:
 		return
 	var start := position
@@ -118,8 +120,13 @@ func walk(dir: int, dt: float) -> void:
 		if terrain.is_solid(position - up):
 			return
 		position -= up
-	# No ground within a safe drop: stop at the edge instead of walking off.
-	position = start
+	if safe:
+		position = start  # no ground within a safe drop: stop at the edge
+		return
+	# Stepped off the ledge: fall from the edge (tick() takes over).
+	position = next
+	grounded = false
+	velocity = Vector2.ZERO
 
 
 ## Slope of the ground under the feet in degrees, relative to local level (perpendicular to "up").
@@ -209,6 +216,8 @@ func _draw() -> void:
 	if rooted_turns > 0:
 		var c := up * 9.0
 		draw_arc(c, 15.0, 0, TAU, 24, Color(0.5, 0.8, 1.0, 0.9), 2.0)
+		if skip_next:
+			draw_arc(c, 21.0, 0, TAU, 24, Color(0.5, 0.8, 1.0, 0.9), 2.0)  # double ring: turn will be skipped
 		for k in 6:
 			var a := float(k) / 6.0 * TAU + _bob
 			draw_line(c + Vector2.from_angle(a) * 11.0, c + Vector2.from_angle(a) * 19.0, Color(0.6, 0.9, 1.0, 0.8), 1.5)

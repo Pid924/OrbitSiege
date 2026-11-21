@@ -432,7 +432,7 @@ func _apply_command(cmd: Dictionary) -> void:
 	match cmd.get("type", ""):
 		"walk":
 			_face(int(cmd.dir))
-			active_unit.walk(int(cmd.dir), 1.0 / 60.0)
+			active_unit.walk(int(cmd.dir), 1.0 / 60.0, cmd.get("safe", false))
 		"face":
 			_face(int(cmd.dir))
 		"aim":
@@ -716,7 +716,12 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 			continue
 		var c: Vector2 = u.body_center()
 		var d := c.distance_to(pos)
-		if w.has("root_radius") and u.team != shooter_team and d < w.root_radius:
+		if w.has("root_radius") and u.team != shooter_team and d < w.root_radius and u.rooted_turns > 0:
+			# Netted again while still netted: its next turn is skipped and it goes last next round.
+			if not u.skip_next:
+				u.skip_next = true
+				_float_text(c + Vector2(0, -46), L.t("โดนข้ามตาถัดไป!"), Color(0.6, 0.85, 1.0))
+		elif w.has("root_radius") and u.team != shooter_team and d < w.root_radius:
 			u.rooted_turns = 1
 			# The net also spins the barrel: a random side and angle, kept until the net wears off.
 			var side := 1 if rng.randf() < 0.5 else -1
@@ -918,7 +923,7 @@ func _reachable_spots() -> Array:
 			for step in 1200:  # up to ~900 px each way
 				ghost.up = physics.up_at(ghost.position)
 				var before: Vector2 = ghost.position
-				ghost.walk(dir, 1.0 / 60.0)
+				ghost.walk(dir, 1.0 / 60.0, true)
 				if ghost.position == before:
 					break  # wall or a drop too deep
 				walked += before.distance_to(ghost.position)
@@ -1134,6 +1139,13 @@ func _start_turn() -> void:
 			_start_round()
 		var u = round_queue.pop_front()
 		u.barrier = false  # a barrier covers until this unit's own next turn
+		if u.alive and u.skip_next:
+			# Double Stasis Net: this turn is lost, counted as the slowest possible (last in next round's order).
+			u.skip_next = false
+			u.rooted_turns = 0
+			time_used[u.unit_id] = TURN_TIME + 60.0
+			_float_text(u.body_center() + Vector2(0, -46), L.t("ข้ามตา (ตาข่ายซ้อน)"), Color(0.6, 0.85, 1.0))
+			continue
 		if u.alive and u.poison_turns > 0:
 			u.poison_turns -= 1
 			u.take_damage(POISON_DAMAGE)
