@@ -36,7 +36,7 @@ const DRIFT_GRAVITY := 260.0
 const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a unit is lost in the gas giant
 const REFIRE_DELAY := 0.35
 const MAX_WIND := 55.0
-const MAX_CRATES := 4
+const MAX_CRATES := 6
 const EVENT_CHANCE := 0.4
 ## Round events last a whole round. Each has a random size: damage and blast -20%..+20%
 ## (steps of 5%), turn time -10..+10 s. Applied in _fire and _start_turn.
@@ -848,12 +848,13 @@ func _sky_strike(pos: Vector2, axis: Vector2, w: Dictionary) -> void:
 
 # --- Supply crates --------------------------------------------------------
 
-func _drop_crate() -> void:
+func _drop_crate(kind := "") -> void:
 	crates = crates.filter(func(c): return not c.gone)
 	if crates.size() >= MAX_CRATES:
 		return
-	var kind := "ammo" if crate_drops % 2 == 0 else "buff"  # the two kinds take turns
-	crate_drops += 1
+	if kind == "":
+		kind = "ammo" if crate_drops % 2 == 0 else "buff"  # the two kinds take turns
+		crate_drops += 1
 	var pos: Vector2
 	var placed := false
 	# Aim at ground someone can walk to, and check the crate really lands there.
@@ -878,7 +879,7 @@ func _drop_crate() -> void:
 	crate.setup(pos, kind, physics, terrain)
 	add_child(crate)
 	crates.append(crate)
-	var drop_text := L.t("กล่องเสบียงกำลังตก!") if kind == "ammo" else L.t("กล่องพลังกำลังตก!")
+	var drop_text := L.t("กล่องเสบียงกำลังตก!") if kind == "ammo" else (L.t("กล่องพลังกำลังตก!") if kind == "buff" else L.t("กล่องวาร์ปกำลังตก!"))
 	_float_text(pos.clamp(Vector2(60, 60), world_size - Vector2(60, 60)), drop_text, Color(1, 0.85, 0.5))
 
 
@@ -947,8 +948,8 @@ func _tick_crates(delta: float) -> void:
 
 func _collect(crate, unit) -> void:
 	sfx.play("pickup")
-	if crate.kind == "buff":
-		_collect_buff(unit)
+	if crate.kind == "buff" or crate.kind == "warp":
+		_collect_buff(unit, "teleport" if crate.kind == "warp" else "")
 		crates.erase(crate)
 		crate.queue_free()
 		return
@@ -963,8 +964,9 @@ func _collect(crate, unit) -> void:
 
 ## Buff crate: works at once, no button. Shot buffs last until the end of the unit's turn
 ## (its next turn if it picks the crate up on someone else's turn or after firing).
-func _collect_buff(unit) -> void:
-	var kind: String = BUFF_KINDS[rng.randi() % BUFF_KINDS.size()]
+func _collect_buff(unit, kind := "") -> void:
+	if kind == "":
+		kind = BUFF_KINDS[rng.randi() % BUFF_KINDS.size()]
 	var text := ""
 	match kind:
 		"hp":
@@ -1072,6 +1074,8 @@ func _start_round() -> void:
 	time_used.clear()
 	if round_number > 1:
 		_drop_crate()  # a supply crate after every finished round
+		if GameSettings.STAGES[stage].get("warp_crates", false):
+			_drop_crate("warp")  # Sky Tiers: a teleport crate falls alongside every other crate
 	round_event = {}
 	if rng.randf() < EVENT_CHANCE:
 		var kind: String = EVENT_KINDS[rng.randi() % EVENT_KINDS.size()]
@@ -1147,6 +1151,8 @@ func aim_side(unit) -> int:
 func aim_range(weapon_id := "") -> Vector2:
 	if weapon_id == "":
 		weapon_id = current_weapon_id()
+		if active_unit and active_unit.buffs.has("teleport"):
+			weapon_id = "teleport"  # the teleport shot aims anywhere, whatever weapon is picked
 	return Weapons.get_def(weapon_id).get("elev", Vector2(-70, 90))
 
 

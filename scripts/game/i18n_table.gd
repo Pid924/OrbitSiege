@@ -32,6 +32,7 @@ const TABLE := {
 	"บาเรีย! กันดาเมจได้ 1 ครั้ง": ["Barrier! Blocks one hit", "Barriere! Blockt einen Treffer", "Barrière! Blokkeert één treffer", "バリア！1回ダメージを防ぐ", "护盾！抵挡一次伤害"],
 	"บาเรียกันไว้!": ["Blocked by barrier!", "Von der Barriere geblockt!", "Geblokkeerd door barrière!", "バリアが防いだ！", "护盾挡住了！"],
 	"บาเรีย": ["Barrier", "Barriere", "Barrière", "バリア", "护盾"],
+	"กล่องวาร์ปกำลังตก!": ["A warp crate is falling!", "Eine Warpkiste fällt!", "Er valt een warpkist!", "ワープ箱が落下中！", "传送箱正在落下！"],
 	"คุณ": ["You", "Du", "Jij", "あなた", "你"],
 	"อีกฝ่าย": ["Rival", "Gegner", "Tegenstander", "相手", "对手"],
 	"อีกฝ่ายชนะ": ["Your rival wins", "Dein Gegner gewinnt", "Je tegenstander wint", "相手の勝ち", "对手获胜"],

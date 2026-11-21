@@ -34,6 +34,7 @@ const STAGES := {
 		"kind": "islands", "size": Vector2(2600, 1900),
 		"island_width": Vector2(340, 540), "gap": Vector2(110, 190), "depth": Vector2(70, 110),
 		"tiers": [0.24, 0.5, 0.76],
+		"warp_crates": true,  # an extra teleport-only crate with every crate drop
 	},
 	"orbit": {
 		"name": "Orbit Field",
@@ -46,7 +47,7 @@ const STAGE_ORDER := ["drift", "titan", "orbit", "reef", "cliffs", "tiers"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
-const VERSION := "2.4.0"
+const VERSION := "2.4.1"
 
 ## [label, seconds to fill the charge bar] for the human player.
 const CHARGE_OPTIONS := [["ช้ามาก", 5.0], ["ช้า", 3.6], ["ปกติ", 2.6], ["เร็ว", 1.6]]
