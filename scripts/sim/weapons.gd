@@ -49,7 +49,7 @@ const DATA := {
 		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
-		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 7, "spread": 3, "spread_deg": 6.0, "volley_gap": 0.5, "side_wind_mult": 2.5, "friendly_safe": true, "elev": Vector2(-70, 90),
+		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0, "volley_gap": 0.5, "side_wind_mult": 2.5, "friendly_safe": true, "elev": Vector2(-70, 90),
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
 		"desc": "ยิง 3 นัดแบบพัด ทีละนัดห่างกัน 0.5 วินาที เล็งได้ทุกมุม ลูกข้างโดนลมแรงกว่าลูกหลัก ไม่โดนเพื่อนร่วมทีม",
 	},

@@ -28,6 +28,13 @@ const STAGES := {
 		"island_width": Vector2(900, 1300), "gap": Vector2(70, 120), "depth": Vector2(480, 600),
 		"terrace": Vector2(170, 300), "terrace_lift": 260.0,
 	},
+	"tiers": {
+		"name": "Sky Tiers",
+		"desc": "เกาะลอยเรียงเป็น 3 ชั้น แต่ละตัวเกิดสุ่มชั้น ยิงข้ามชั้นผ่านช่องระหว่างเกาะ ร่วงลงล่างสุด = ตาย",
+		"kind": "islands", "size": Vector2(2600, 1900),
+		"island_width": Vector2(340, 540), "gap": Vector2(110, 190), "depth": Vector2(70, 110),
+		"tiers": [0.24, 0.5, 0.76],
+	},
 	"orbit": {
 		"name": "Orbit Field",
 		"desc": "ดาวยักษ์ดวงเดียว แรงโน้มถ่วงดึงเข้าหาใจกลางดาว ยิงโค้งอ้อมดาวไปหาศัตรูอีกฝั่งได้",
@@ -35,11 +42,11 @@ const STAGES := {
 		"hold_height": 380.0,  # shells never climb more than this above the surface
 	},
 }
-const STAGE_ORDER := ["drift", "titan", "orbit", "reef", "cliffs"]
+const STAGE_ORDER := ["drift", "titan", "orbit", "reef", "cliffs", "tiers"]
 
 ## How much of the predicted flight path the human player sees, in seconds of flight.
 const GUIDE_OPTIONS := [["ปิด", 0.0], ["สั้น", 0.35], ["กลาง", 0.9], ["ยาว", 2.0], ["เต็มเส้น", 12.0]]
-const VERSION := "2.3.0"
+const VERSION := "2.4.0"
 
 ## [label, seconds to fill the charge bar] for the human player.
 const CHARGE_OPTIONS := [["ช้ามาก", 5.0], ["ช้า", 3.6], ["ปกติ", 2.6], ["เร็ว", 1.6]]

@@ -76,7 +76,7 @@ var refire_timer := 0.0
 var last_shot := {}
 var shot_poison := false  # this shot leaves poison where it bursts (crate buff)
 var crate_drops := 0  # crates alternate: supply (ammo) then buff
-const BUFF_KINDS := ["hp", "dmg", "double", "teleport", "poison"]
+const BUFF_KINDS := ["hp", "dmg", "double", "teleport", "poison", "barrier"]
 const POISON_DAMAGE := 10
 const POISON_TURNS := 3
 const POISON_RADIUS := 140.0  # same as the Stasis Net
@@ -239,6 +239,11 @@ func _planet_homes() -> Array:
 
 ## Spawn spots per team: team 0 on the left islands, team 1 on the right ones.
 func _island_homes(islands: Array) -> Array:
+	if GameSettings.STAGES[stage].has("tiers"):
+		# Rows of islands: each team keeps its own half of the map on every row.
+		var left := islands.filter(func(i): return (i.x0 + i.x1) / 2.0 < world_size.x / 2.0)
+		var right := islands.filter(func(i): return (i.x0 + i.x1) / 2.0 >= world_size.x / 2.0)
+		return [_island_spots(left), _island_spots(right)]
 	var half := maxi(1, islands.size() / 2)
 	var homes := [islands.slice(0, half), islands.slice(islands.size() - half)]
 	return homes.map(func(h): return _island_spots(h))
@@ -246,8 +251,14 @@ func _island_homes(islands: Array) -> Array:
 
 func _island_spots(islands: Array) -> Array:
 	var spots := []
+	var tiers := {}
+	for i in islands:
+		tiers[i.get("tier", 0)] = true
 	for attempt in 160:
-		var island: Dictionary = islands[rng.randi() % islands.size()]
+		# Pick a row first, so every unit lands on a random row (stage "tiers").
+		var row: int = tiers.keys()[rng.randi() % tiers.size()]
+		var on_row := islands.filter(func(i): return i.get("tier", 0) == row)
+		var island: Dictionary = on_row[rng.randi() % on_row.size()]
 		var x := rng.randf_range(lerpf(island.x0, island.x1, 0.08), lerpf(island.x0, island.x1, 0.92))
 		var pos := Vector2(x, island.base - 80.0)  # island tops never rise above base - 70
 		if island.has("steps"):
@@ -725,9 +736,7 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		var dmg := int(round(base * f * shot_dmg_mult))
 		if dmg <= 0:
 			continue
-		u.take_damage(dmg)
-		sfx.play("hit")
-		_float_text(c + Vector2(0, -30), "-%d" % dmg, Color(1, 0.85, 0.4))
+		_hurt(u, dmg, Color(1, 0.85, 0.4))
 	if w.has("bomblets"):
 		var back: Vector2 = -vel.normalized() if vel.length_squared() > 1.0 else physics.up_at(pos)
 		var count: int = int(w.get("direct_bomblets", w.bomblets)) if direct else int(w.bomblets)
@@ -740,6 +749,20 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 	fx.setup(pos, maxf(radius, w.get("root_radius", w.get("heal_radius", 0.0)) * 0.7), w.color)
 	add_child(fx)
 	camera.shake = maxf(camera.shake, radius * 0.3)
+
+
+## All shell damage goes through here so a barrier can stop it (once, then it pops).
+func _hurt(u, dmg: int, color: Color) -> void:
+	if dmg <= 0 or not u.alive:
+		return
+	if u.barrier:
+		u.barrier = false
+		sfx.play("zap")
+		_float_text(u.body_center() + Vector2(0, -30), L.t("บาเรียกันไว้!"), Color(0.55, 0.9, 1.0))
+		return
+	u.take_damage(dmg)
+	sfx.play("hit")
+	_float_text(u.body_center() + Vector2(0, -30), "-%d" % dmg, color)
 
 
 ## Poison crate: enemies near the burst lose POISON_DAMAGE at the start of their next 3 turns.
@@ -819,8 +842,7 @@ func _sky_strike(pos: Vector2, axis: Vector2, w: Dictionary) -> void:
 		if across >= width or rel.dot(axis) < -90.0:
 			continue
 		var dmg := int(round(w.damage * (1.0 - 0.6 * across / width) * shot_dmg_mult))
-		u.take_damage(dmg)
-		_float_text(u.body_center() + Vector2(0, -30), "-%d" % dmg, Color(1, 0.9, 0.5))
+		_hurt(u, dmg, Color(1, 0.9, 0.5))
 	camera.shake = maxf(camera.shake, 22.0)
 
 
@@ -961,6 +983,9 @@ func _collect_buff(unit) -> void:
 		"poison":
 			unit.buffs["poison"] = true
 			text = L.t("นัดถัดไปมีพิษ")
+		"barrier":
+			unit.barrier = true
+			text = L.t("บาเรีย! กันดาเมจได้ 1 ครั้ง")
 	if unit == active_unit and phase != Phase.AIMING:
 		unit.buff_keep = true  # already fired this turn: keep it for the next one
 	_float_text(unit.body_center() + Vector2(0, -50), text, Color(1.0, 0.8, 0.35))
@@ -995,12 +1020,11 @@ func _end_turn() -> void:
 		active_unit.charge = 0.0
 		active_unit.rooted_turns = maxi(0, active_unit.rooted_turns - 1)
 		time_used[active_unit.unit_id] = turn_start_time - maxf(turn_time_left, 0.0)
-		# Shot buffs not used this turn are gone (teleport waits for the next shot).
+		# Shot buffs not used this turn are gone.
 		if active_unit.buff_keep:
 			active_unit.buff_keep = false
 		else:
-			for k in ["dmg", "double", "poison"]:
-				active_unit.buffs.erase(k)
+			active_unit.buffs.clear()
 	if not _check_game_over():
 		_start_turn()
 
@@ -1075,6 +1099,7 @@ func _start_turn() -> void:
 		while round_queue.is_empty():
 			_start_round()
 		var u = round_queue.pop_front()
+		u.barrier = false  # a barrier covers until this unit's own next turn
 		if u.alive and u.poison_turns > 0:
 			u.poison_turns -= 1
 			u.take_damage(POISON_DAMAGE)

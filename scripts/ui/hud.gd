@@ -445,6 +445,8 @@ func _buff_text(u) -> String:
 		parts.append(L.t("กระสุนพิษ"))
 	if u.poison_turns > 0:
 		parts.append(L.t("ติดพิษอีก %d ตา") % u.poison_turns)
+	if u.barrier:
+		parts.append(L.t("บาเรีย"))
 	return (L.t("สถานะ: ") + "  ·  ".join(parts)) if not parts.is_empty() else ""
 
 

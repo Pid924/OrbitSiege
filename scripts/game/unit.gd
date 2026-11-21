@@ -25,6 +25,7 @@ var poison_turns := 0  # own turns left that start with poison damage
 ## Crate buffs for this unit's next shot: "dmg" (extra fraction), "double", "teleport", "poison".
 var buffs := {}
 var buff_keep := false  # picked up after firing this turn: keep through this turn's end
+var barrier := false  # crate barrier: blocks the next shell damage, until this unit's next turn
 var rooted_turns := 0  # own turns left during which this unit cannot walk
 var fell_into_core := false
 var aim_range := Vector2(-70, 90)  # allowed elevation above level (weapon range + ground tilt), for drawing
@@ -220,6 +221,10 @@ func _draw() -> void:
 	draw_rect(bar, Color(0, 0, 0, 0.65))
 	draw_rect(Rect2(bar.position, Vector2(40.0 * fill, 6)), bar_color)
 	draw_rect(bar, Color(1, 1, 1, 0.4), false, 1.0)
+	if barrier:
+		var shield := up * 9.0
+		draw_circle(shield, 18.0, Color(0.5, 0.85, 1.0, 0.12))
+		draw_arc(shield, 18.0, 0, TAU, 32, Color(0.6, 0.9, 1.0, 0.7 + 0.2 * sin(_bob * 3.0)), 2.0)
 	# Status dots left of the HP bar: green = poisoned, gold = has a crate buff.
 	var dot := head + Vector2(-26, 3)
 	if poison_turns > 0:

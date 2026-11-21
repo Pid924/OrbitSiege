@@ -50,19 +50,27 @@ func generate_islands(rng: RandomNumberGenerator, cfg: Dictionary) -> Array:
 	var speck := _speck_noise(rng)
 	var islands := []
 	var palette_index := rng.randi() % PALETTES.size()
-	var x := rng.randf_range(40.0, 90.0)
-	while x < width - island_width.x * 0.6:
-		var w := minf(rng.randf_range(island_width.x, island_width.y), width - 40.0 - x)
-		var island := {
-			"x0": x, "x1": x + w,
-			"base": rng.randf_range(0.36, 0.5) * height,
-			"depth": rng.randf_range(depth.x, depth.y),
-		}
-		if cfg.has("terrace"):
-			_add_terraces(island, rng, cfg)
-		_paint_island(island, surface, jag, speck, PALETTES[palette_index % PALETTES.size()])
-		islands.append(island)
-		x += w + rng.randf_range(gap.x, gap.y)
+	# "tiers": several rows of islands stacked one above another (fractions of the height);
+	# each row starts at its own offset so the gaps do not line up.
+	var rows: Array = cfg.get("tiers", [-1.0])
+	for tier in rows.size():
+		var x := rng.randf_range(40.0, 90.0) if tier == 0 else rng.randf_range(40.0, island_width.x * 0.8)
+		while x < width - island_width.x * 0.6:
+			var w := minf(rng.randf_range(island_width.x, island_width.y), width - 40.0 - x)
+			var base: float = rng.randf_range(0.36, 0.5) * height
+			if rows[tier] >= 0.0:
+				base = (rows[tier] + rng.randf_range(-0.02, 0.02)) * height
+			var island := {
+				"x0": x, "x1": x + w,
+				"base": base,
+				"depth": rng.randf_range(depth.x, depth.y),
+				"tier": tier,
+			}
+			if cfg.has("terrace"):
+				_add_terraces(island, rng, cfg)
+			_paint_island(island, surface, jag, speck, PALETTES[(palette_index + tier) % PALETTES.size()])
+			islands.append(island)
+			x += w + rng.randf_range(gap.x, gap.y)
 	# Small rocks hanging over the gaps. Spawns scan down from just above each island's top,
 	# so rocks above islands sit higher than that (see Match._island_spots).
 	var sky_rocks: int = cfg.get("sky_rocks", 0)
@@ -72,6 +80,8 @@ func generate_islands(rng: RandomNumberGenerator, cfg: Dictionary) -> Array:
 			var c := Vector2(rx, rng.randf_range(0.1, 0.24) * height)
 			_paint_rock(c, rng.randf_range(18.0, 30.0), speck, PALETTES[(palette_index + 2) % PALETTES.size()])
 	for i in range(islands.size() - 1):
+		if cfg.has("tiers"):
+			break  # the rows above already hang over the gaps
 		if sky_rocks == 0 and rng.randf() < 0.3:
 			continue
 		var gap_x: float = (islands[i].x1 + islands[i + 1].x0) / 2.0
