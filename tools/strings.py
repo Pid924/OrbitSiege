@@ -36,6 +36,7 @@ ROWS = [
 ("บาเรียกันไว้!", "Blocked by barrier!", "Von der Barriere geblockt!", "Geblokkeerd door barrière!", "バリアが防いだ！", "护盾挡住了！"),
 ("บาเรีย", "Barrier", "Barriere", "Barrière", "バリア", "护盾"),
 ("กล่องวาร์ปกำลังตก!", "A warp crate is falling!", "Eine Warpkiste fällt!", "Er valt een warpkist!", "ワープ箱が落下中！", "传送箱正在落下！"),
+("กล่องวาร์ปหายไป", "Warp crate vanished", "Warpkiste verschwunden", "Warpkist verdwenen", "ワープ箱が消えた", "传送箱消失了"),
 # online
 ("คุณ", "You", "Du", "Jij", "あなた", "你"),
 ("อีกฝ่าย", "Rival", "Gegner", "Tegenstander", "相手", "对手"),

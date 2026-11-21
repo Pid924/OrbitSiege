@@ -9,6 +9,7 @@ const PICKUP_RADIUS := 24.0
 var kind := "ammo"
 var landed := false
 var gone := false
+var expire_turn := -1  # warp crates vanish at the start of this turn if nobody took them
 var velocity := Vector2.ZERO
 var physics
 var terrain

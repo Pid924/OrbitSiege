@@ -37,6 +37,7 @@ var touch := false
 var touch_controls: Control
 var current_card: Button
 var replay_button: Button
+var back_button: Button  # game over: back to the menu (online, the replay button already does this)
 var order_label: Label
 var skip_button: Button
 var pause_menu
@@ -200,6 +201,16 @@ func _ready() -> void:
 		else:
 			get_tree().reload_current_scene())
 	add_child(replay_button)
+
+	back_button = Button.new()
+	back_button.text = L.t("กลับเมนู")
+	back_button.position = Vector2(640, 645)
+	back_button.size = Vector2(320, 90)
+	back_button.focus_mode = Control.FOCUS_NONE
+	back_button.add_theme_font_size_override("font_size", 32)
+	back_button.visible = false
+	back_button.pressed.connect(func(): game.go_to_menu())
+	add_child(back_button)
 
 	pause_menu = PauseMenu.new()
 	add_child(pause_menu)
@@ -554,6 +565,7 @@ func _update_net() -> void:
 
 func _on_game_over(winner: int) -> void:
 	replay_button.visible = true
+	back_button.visible = game.net == null
 	if touch_controls:
 		touch_controls.visible = false
 	if winner < 0:

@@ -18,6 +18,7 @@ var touch_fine := false
 ## Online, commands take effect a few ticks later; aim runs ahead on this predicted angle
 ## so holding the button keeps the barrel turning smoothly.
 var aim_pred := 0.0
+var skip_sent := false  # Enter pressed: ignore the held fire key until the turn ends
 
 
 func setup(game_ref, team_id: int) -> void:
@@ -27,6 +28,7 @@ func setup(game_ref, team_id: int) -> void:
 
 func begin_turn(u) -> void:
 	unit = u
+	skip_sent = false
 	charging = false
 	charge = 0.0
 
@@ -39,7 +41,7 @@ func end_turn() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if unit == null or not game.is_turn_of(team):
+	if unit == null or not game.is_turn_of(team) or skip_sent:
 		return
 	var walk := 0
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
@@ -115,6 +117,11 @@ func cycle_weapon(step: int, index := -1) -> void:
 
 
 func skip_turn() -> void:
-	if unit == null or not game.is_turn_of(team) or charging:
+	if unit == null or not game.is_turn_of(team) or skip_sent:
 		return
+	# Works mid-charge too: a botched shot (angle overshot) can be dropped instead of fired.
+	skip_sent = true
+	charging = false
+	charge = 0.0
+	touch_fire = false
 	game.submit_command({"type": "skip", "team": team})
