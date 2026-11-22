@@ -63,6 +63,8 @@ func begin_turn(u) -> void:
 	_fill_candidates()
 	if _want_special():
 		game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find("special")})
+		state = State.IDLE  # the power ends the turn: nothing else to do
+		return
 	game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find(_pick_weapon())})
 	var crate = _reachable_crate()
 	if crate != null:
@@ -102,7 +104,7 @@ func _pick_weapon() -> String:
 	return "plasma"
 
 
-## Element power (slot 0), once per unit: fire and water use it now and then; wood when the team is hurt.
+## Element power (slot 0), once per unit, costs the turn: fire and water now and then; wood when the team is hurt.
 func _want_special() -> bool:
 	if not game.weapon_available(team, "special"):
 		return false
@@ -112,7 +114,7 @@ func _want_special() -> bool:
 			if u.alive and u.team == team:
 				missing += u.MAX_HP - u.hp
 		return missing >= 60
-	return rng.randf() < 0.3
+	return rng.randf() < 0.15  # the power costs the turn
 
 
 func end_turn() -> void:

@@ -392,12 +392,16 @@ func _process(delta: float) -> void:
 		var line := L.t("%s  เหลือ %d คน") % [game.team_name(team), game.alive_count(team)]
 		if game.team_boost[team] > 0.0:
 			line += L.t("   (+) นัดถัดไปแรงขึ้น %d%%") % int(game.team_boost[team] * 100)
-		if game.team_rally[team] > 0:
-			line += L.t("   ดาเมจ +%d%% อีก %d รอบ") % [roundi(Weapons.SPECIAL_DMG * 100), game.team_rally[team]]
-		if game.team_curse[team] > 0:
-			line += L.t("   ดาเมจ -%d%% อีก %d รอบ") % [roundi(Weapons.SPECIAL_DMG * 100), game.team_curse[team]]
-		if game.team_bloom[team] > 0:
-			line += L.t("   +%d HP ต้นรอบหน้า") % Weapons.SPECIAL_HEAL
+		var rally: int = game.power_stage(game.team_rally[team])
+		if rally == 1:
+			line += L.t("   ไฟ: เพื่อนดาเมจ +%d%% (รอบ 1/2)") % roundi(Weapons.RALLY_DMG[0] * 100)
+		elif rally == 2:
+			line += L.t("   ไฟ: ทั้งทีมดาเมจ +%d%% (รอบ 2/2)") % roundi(Weapons.RALLY_DMG[1] * 100)
+		var curse: int = game.power_stage(game.team_curse[team])
+		if curse > 0:
+			line += L.t("   โดนน้ำ: ดาเมจ -%d%% (รอบ %d/2)") % [roundi(Weapons.CURSE_DMG[curse - 1] * 100), curse]
+		if game.power_stage(game.team_bloom[team]) == 1:
+			line += L.t("   ไม้: ต้นรอบหน้าฮีลทั้งทีม %d") % Weapons.BLOOM_ALL
 		lines.append(line)
 	teams_label.text = "\n".join(lines)
 	# Bars sit right of the longest team line (the text length depends on the language).
@@ -481,6 +485,10 @@ func _buff_text(u) -> String:
 		parts.append(L.t("ติดพิษอีก %d ตา") % u.poison_turns)
 	if u.barrier:
 		parts.append(L.t("บาเรีย"))
+	if u.power_bonus > 0.001:
+		parts.append(L.t("พลังธาตุ ดาเมจ +%d%%") % roundi(u.power_bonus * 100.0))
+	elif u.power_bonus < -0.001:
+		parts.append(L.t("พลังธาตุ ดาเมจ -%d%%") % roundi(-u.power_bonus * 100.0))
 	return (L.t("สถานะ: ") + "  ·  ".join(parts)) if not parts.is_empty() else ""
 
 
@@ -504,7 +512,7 @@ func _weapon_tooltip(w: Dictionary) -> String:
 func _stats_text(w: Dictionary) -> String:
 	var parts := []
 	if w.has("special"):
-		return L.t("กดแล้วยังยิงต่อในตานี้ได้")
+		return L.t("กดแล้วจบตาทันที")
 	if w.has("element"):
 		parts.append(L.t("ธาตุ%s") % L.t(Weapons.ELEMENT_INFO[w.element].name))
 	elif w.get("elemental", false):

@@ -34,6 +34,8 @@ var element := ""  # fire / water / wood: suit color, slot-1 shell, slot-0 power
 var suit := Color.WHITE
 var walk_mult := 1.0
 var special_used := false  # element power (slot 0) is once per unit per match
+var power_bonus := 0.0  # damage change from element powers right now (drawn as an arrow)
+var bloom_next := false  # Verdant Bloom heals this unit again when the next round starts
 var order_num := 0  # place in this round's turn order (0 = none)
 var order_done := false  # already had its turn this round
 var fell_into_core := false
@@ -286,6 +288,20 @@ func _draw() -> void:
 		dot.x -= 9.0
 	if not buffs.is_empty():
 		draw_circle(dot, 3.5, Color(1.0, 0.8, 0.25))
+		dot.x -= 9.0
+	# Element powers: red up arrow = damage up, blue down arrow = damage down, green plus = heal next round.
+	if power_bonus > 0.001:
+		var c := Weapons.ELEMENT_INFO.fire.color
+		draw_colored_polygon(PackedVector2Array([dot + Vector2(0, -5), dot + Vector2(-4.5, 2), dot + Vector2(4.5, 2)]), c)
+		dot.x -= 10.0
+	elif power_bonus < -0.001:
+		var c := Weapons.ELEMENT_INFO.water.color
+		draw_colored_polygon(PackedVector2Array([dot + Vector2(0, 5), dot + Vector2(-4.5, -2), dot + Vector2(4.5, -2)]), c)
+		dot.x -= 10.0
+	if bloom_next:
+		var c := Weapons.ELEMENT_INFO.wood.color
+		draw_rect(Rect2(dot + Vector2(-4, -1), Vector2(8, 2.5)), c)
+		draw_rect(Rect2(dot + Vector2(-1.25, -4), Vector2(2.5, 8)), c)
 	draw_string(font, head + Vector2(-30, -4), unit_name, HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(1, 1, 1, 0.9))
 	if order_num > 0 and alive:
 		# This round's turn order, right of the HP bar (dim once the unit has played).

@@ -94,8 +94,9 @@ var round_event := {}  # {"kind": "dmg"|"time"|"blast", "value": int} or {} for 
 var team_boost := [0.0, 0.0]  # extra damage for the team's next shot (legacy weapon "boost" key)
 ## Element powers, in rounds left (the round of use counts): own damage up, own damage down, heal at round start.
 var team_rally := [0, 0]
-var team_curse := [0, 0]
+var team_curse := [0, 0]  # on the team whose damage is cut
 var team_bloom := [0, 0]
+var rally_caster := [-1, -1]  # unit_id of the fire unit that called the rally (no bonus for it in round 1)
 var shot_dmg_mult := 1.0
 var shot_radius_mult := 1.0
 var pending_strikes: Array = []  # {"pos", "axis", "weapon", "time"} for sky beams on their way down
@@ -495,10 +496,7 @@ func _fire(angle: float, power: float) -> void:
 	if team_boost[current_team] > 0.0 and not w.has("boost"):
 		shot_dmg_mult *= 1.0 + team_boost[current_team]
 		team_boost[current_team] = 0.0
-	if team_rally[current_team] > 0:
-		shot_dmg_mult *= 1.0 + Weapons.SPECIAL_DMG
-	if team_curse[current_team] > 0:
-		shot_dmg_mult *= 1.0 - Weapons.SPECIAL_DMG
+	shot_dmg_mult *= 1.0 + power_bonus(active_unit)
 	shot_radius_mult = 1.0 + _event_value("blast") / 100.0
 	shot_dmg_mult *= 1.0 + float(buffs.get("dmg", 0.0))
 	if buffs.has("double"):
@@ -1015,7 +1013,7 @@ func _expire_crates() -> void:
 		c.queue_free()
 
 
-## Slot 0: the active unit's element power, once per unit per match. It does not end the turn.
+## Slot 0: the active unit's element power, once per unit per match. Using it ends the turn.
 func _use_special() -> void:
 	if not weapon_available(current_team, "special"):
 		return
@@ -1027,35 +1025,70 @@ func _use_special() -> void:
 	var fx := Explosion.new()
 	fx.setup(u.body_center(), 90.0, w.color)
 	add_child(fx)
+	_float_text(u.body_center() + Vector2(0, -60), w.name, w.color)
 	match w.special:
 		"rally":
 			team_rally[team] = Weapons.SPECIAL_ROUNDS
-			_float_text(u.body_center() + Vector2(0, -60), L.t("ทั้งทีมดาเมจ +%d%% 2 รอบ") % roundi(Weapons.SPECIAL_DMG * 100), w.color)
+			rally_caster[team] = u.unit_id
 		"curse":
 			team_curse[1 - team] = Weapons.SPECIAL_ROUNDS
-			_float_text(u.body_center() + Vector2(0, -60), L.t("ศัตรูดาเมจ -%d%% 2 รอบ") % roundi(Weapons.SPECIAL_DMG * 100), w.color)
 		"bloom":
-			team_bloom[team] = Weapons.SPECIAL_ROUNDS - 1  # heals now, then again at the start of each later round
-			_bloom(team)
+			team_bloom[team] = Weapons.SPECIAL_ROUNDS
+			for v in units:
+				if v.alive and v.team == team:
+					_heal_text(v, Weapons.BLOOM_SELF if v == u else Weapons.BLOOM_MATES)
+	_refresh_power_marks()
+	# The power takes the unit's turn.
+	u.charge = 0.0
+	controllers[current_team].end_turn()
+	aim_guide.clear()
+	_begin_settling()
 
 
-## Verdant Bloom: every living unit of `team` heals SPECIAL_HEAL.
-func _bloom(team: int) -> void:
-	for v in units:
-		if v.alive and v.team == team:
-			var healed: int = v.heal(Weapons.SPECIAL_HEAL)
-			if healed > 0:
-				_float_text(v.body_center() + Vector2(0, -30), "+%d" % healed, Color(0.5, 1.0, 0.55))
+func _heal_text(v, amount: int) -> void:
+	var healed: int = v.heal(amount)
+	if healed > 0:
+		_float_text(v.body_center() + Vector2(0, -30), "+%d" % healed, Color(0.5, 1.0, 0.55))
 
 
-## Round start: element powers count down a round; a pending Verdant Bloom heals again.
+## Element power stage this round: 1 = the round it was used, 2 = the next one, 0 = not active.
+func power_stage(rounds_left: int) -> int:
+	return Weapons.SPECIAL_ROUNDS - rounds_left + 1 if rounds_left > 0 else 0
+
+
+## Damage bonus (or cut, negative) from element powers for a shot by `u`.
+func power_bonus(u) -> float:
+	var bonus := 0.0
+	var rally := power_stage(team_rally[u.team])
+	if rally == 1 and u.unit_id != rally_caster[u.team]:
+		bonus += Weapons.RALLY_DMG[0]
+	elif rally == 2:
+		bonus += Weapons.RALLY_DMG[1]
+	var curse := power_stage(team_curse[u.team])
+	if curse > 0:
+		bonus -= Weapons.CURSE_DMG[curse - 1]
+	return bonus
+
+
+## Updates the power icons drawn on every unit.
+func _refresh_power_marks() -> void:
+	for u in units:
+		u.power_bonus = power_bonus(u)
+		u.bloom_next = power_stage(team_bloom[u.team]) == 1
+
+
+## Round start: element powers count down a round; Verdant Bloom's second heal lands now.
 func _tick_element_powers() -> void:
 	for team in 2:
 		team_rally[team] = maxi(0, team_rally[team] - 1)
 		team_curse[team] = maxi(0, team_curse[team] - 1)
 		if team_bloom[team] > 0:
 			team_bloom[team] -= 1
-			_bloom(team)
+			if team_bloom[team] == Weapons.SPECIAL_ROUNDS - 1:
+				for v in units:
+					if v.alive and v.team == team:
+						_heal_text(v, Weapons.BLOOM_ALL)
+	_refresh_power_marks()
 
 
 func _collect(crate, unit) -> void:

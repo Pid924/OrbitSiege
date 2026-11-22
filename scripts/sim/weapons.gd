@@ -35,10 +35,13 @@ const ELEMENT_INFO := {
 	"water": {"name": "น้ำ", "color": Color(0.3, 0.62, 1.0), "beats": "fire", "walk": 1.25},
 	"wood": {"name": "ไม้", "color": Color(0.36, 0.85, 0.32), "beats": "water", "walk": 0.75},
 }
-## Element powers (slot 0): how many rounds they last, counting the round they are used in.
+## Element powers (slot 0): used instead of shooting (the turn ends) and last 2 rounds, the round of use first.
 const SPECIAL_ROUNDS := 2
-const SPECIAL_DMG := 0.25
-const SPECIAL_HEAL := 15
+const RALLY_DMG := [0.15, 0.30]  # fire: round 1 teammates only (the caster gave up its turn), round 2 whole team
+const CURSE_DMG := [0.30, 0.15]  # water: enemy damage down, round 1 then round 2
+const BLOOM_SELF := 30  # wood: round 1 heals the caster this much ...
+const BLOOM_MATES := 10  # ... and each teammate this much
+const BLOOM_ALL := 20  # round 2 (when it starts): everyone on the team
 
 const DATA := {
 	# Not in LIST: the shot a teleport crate turns your next shot into.
@@ -70,22 +73,22 @@ const DATA := {
 	"special": {
 		"name": "Element Power", "radius": 0.0, "damage": 0.0, "special": true,
 		"color": Color(1.0, 0.9, 0.5), "icon": "res://assets/weapons/special.png",
-		"desc": "ท่าพิเศษตามธาตุของตัวที่เล่น ตัวละครละ 1 ครั้งต่อเกม กดแล้วยังยิงต่อในตานั้นได้",
+		"desc": "ท่าพิเศษตามธาตุของตัวที่เล่น ตัวละครละ 1 ครั้งต่อเกม กดแล้วจบตาทันที มีผล 2 รอบ",
 	},
 	"special_fire": {
 		"name": "Blaze Rally", "radius": 0.0, "damage": 0.0, "special": "rally",
 		"color": Color(1.0, 0.25, 0.18), "icon": "res://assets/weapons/special_fire.png",
-		"desc": "ทั้งทีมดาเมจ +25% เป็นเวลา 2 รอบ (นับรอบนี้) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
+		"desc": "จบตาทันที รอบนี้เพื่อนร่วมทีมดาเมจ +15% รอบหน้าทั้งทีม (รวมตัวเอง) +30% ใช้ได้ครั้งเดียว",
 	},
 	"special_water": {
 		"name": "Tidal Curse", "radius": 0.0, "damage": 0.0, "special": "curse",
 		"color": Color(0.35, 0.7, 1.0), "icon": "res://assets/weapons/special_water.png",
-		"desc": "ทีมศัตรูดาเมจ -25% เป็นเวลา 2 รอบ (นับรอบนี้) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
+		"desc": "จบตาทันที ทีมศัตรูดาเมจ -30% รอบนี้ และ -15% รอบหน้า ใช้ได้ครั้งเดียว",
 	},
 	"special_wood": {
 		"name": "Verdant Bloom", "radius": 0.0, "damage": 0.0, "special": "bloom",
 		"color": Color(0.45, 0.9, 0.4), "icon": "res://assets/weapons/special_wood.png",
-		"desc": "ทั้งทีม +15 HP ทันที และอีก 15 ตอนเริ่มรอบหน้า (2 รอบ) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
+		"desc": "จบตาทันที ฮีลตัวเอง 30 เพื่อนร่วมทีม 10 แล้วต้นรอบหน้าฮีลทั้งทีมอีก 20 ใช้ได้ครั้งเดียว",
 	},
 	"cluster": {
 		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 3, "friendly_safe": true, "elev": Vector2(20, 80),
