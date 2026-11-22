@@ -877,7 +877,6 @@ func _drop_crate(kind := "") -> void:
 			var w := Crate.new()
 			w.setup(at, kind, physics, terrain)
 			w.landed = true
-			w.expire_turn = turn_number + CRATE_TURNS
 			add_child(w)
 			crates.append(w)
 			_float_text(at + Vector2(0, -40), L.t("กล่องวาร์ปโผล่ขึ้นมา!"), Color(0.5, 1.0, 0.95))
@@ -901,7 +900,6 @@ func _drop_crate(kind := "") -> void:
 		pos = p.center + Vector2.from_angle(rng.randf() * TAU) * (p.radius + 260.0)
 	var crate := Crate.new()
 	crate.setup(pos, kind, physics, terrain)
-	crate.expire_turn = turn_number + CRATE_TURNS
 	add_child(crate)
 	crates.append(crate)
 	var drop_text := L.t("กล่องเสบียงกำลังตก!") if kind == "ammo" else (L.t("กล่องพลังกำลังตก!") if kind == "buff" else L.t("กล่องวาร์ปกำลังตก!"))
@@ -961,6 +959,11 @@ func _crate_lands_near(start: Vector2, target: Vector2) -> bool:
 func _tick_crates(delta: float) -> void:
 	for crate in crates.duplicate():
 		crate.tick(delta)
+		if crate.landed and crate.expire_turn < 0:
+			# Each crate's own life starts when it reaches the ground (warp crates: when they pop up).
+			crate.expire_turn = turn_number + CRATE_TURNS
+		if crate.landed:
+			crate.turns_left = maxi(0, crate.expire_turn - turn_number)
 		if crate.gone:
 			crates.erase(crate)
 			crate.queue_free()
@@ -971,7 +974,7 @@ func _tick_crates(delta: float) -> void:
 				break
 
 
-## Crates nobody picked up within CRATE_TURNS turns disappear.
+## Every crate lives CRATE_TURNS turns from the moment it lands; one nobody picked up by then disappears.
 func _expire_crates() -> void:
 	for c in crates.duplicate():
 		if c.gone or c.expire_turn < 0 or turn_number < c.expire_turn:

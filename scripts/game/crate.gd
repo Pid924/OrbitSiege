@@ -9,7 +9,8 @@ const PICKUP_RADIUS := 24.0
 var kind := "ammo"
 var landed := false
 var gone := false
-var expire_turn := -1  # the crate vanishes at the start of this turn if nobody took it
+var expire_turn := -1  # set on landing; the crate vanishes at the start of this turn if nobody took it
+var turns_left := 0  # shown above the crate once it has landed
 var velocity := Vector2.ZERO
 var physics
 var terrain
@@ -78,3 +79,8 @@ func _draw() -> void:
 		draw_arc(Vector2(0, -11), 2.5, _time * 3.0 + PI, _time * 3.0 + PI * 2.2, 8, Color(0.7, 1.0, 1.0, glow), 1.5)
 	else:
 		draw_string(ThemeDB.fallback_font, Vector2(-5, -6), "+" if buff else "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, mark_color)
+	if landed and expire_turn >= 0:
+		# Turns of life left, in a small badge above the crate (last turn in red).
+		var badge := Color(1.0, 0.35, 0.3) if turns_left <= 1 else Color(1, 1, 1, 0.9)
+		draw_circle(Vector2(0, -34), 8.0, Color(0, 0, 0, 0.55))
+		draw_string(ThemeDB.fallback_font, Vector2(-4, -29), str(turns_left), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, badge)
