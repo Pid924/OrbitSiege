@@ -56,7 +56,7 @@ const DATA := {
 		"desc": "กระสุนพลาสมา เปลี่ยนตามธาตุของตัวที่เล่น (ไฟ / น้ำ / ไม้) ใช้ได้ไม่จำกัด",
 	},
 	"plasma_fire": {
-		"name": "Fire Plasma", "radius": 40.0, "damage": 40.0, "elev": Vector2(0, 30), "element": "fire",
+		"name": "Fire Plasma", "radius": 40.0, "damage": 35.0, "elev": Vector2(0, 30), "element": "fire",
 		"color": Color(1.0, 0.25, 0.18), "icon": "res://assets/weapons/plasma_fire.png",
 		"desc": "พลาสมาธาตุไฟ แรงสุดแต่ยิงได้แค่มุมต่ำ ใส่ธาตุไม้แรงขึ้น 25% ใส่ธาตุน้ำเบาลง 25%",
 	},
@@ -66,7 +66,7 @@ const DATA := {
 		"desc": "พลาสมาธาตุน้ำ ระเบิดกว้าง ไม่โดนพวกเดียวกัน ใส่ธาตุไฟแรงขึ้น 25% ใส่ธาตุไม้เบาลง 25%",
 	},
 	"plasma_wood": {
-		"name": "Wood Plasma", "radius": 30.0, "damage": 20.0, "elev": Vector2(0, 90), "element": "wood",
+		"name": "Wood Plasma", "radius": 30.0, "damage": 25.0, "elev": Vector2(0, 90), "element": "wood",
 		"color": Color(0.45, 0.9, 0.4), "icon": "res://assets/weapons/plasma_wood.png",
 		"desc": "พลาสมาธาตุไม้ ยิงได้ทุกมุมถึงตั้งฉาก ใส่ธาตุน้ำแรงขึ้น 25% ใส่ธาตุไฟเบาลง 25%",
 	},
@@ -103,8 +103,7 @@ const DATA := {
 	"double": {
 		"name": "Twin Strike", "radius": 30.0, "damage": 40.0, "ammo": 2, "shots": 2, "elev": Vector2(0, 60),
 		"color": Color(0.5, 1.0, 0.7), "icon": "res://assets/weapons/double.png",
-		"elemental": true,
-		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น\nใช้ธาตุของคนยิง ชนะธาตุ +25% แพ้ธาตุ -25%",
+		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
 	},
 	"triple": {
 		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0, "volley_gap": 0.5, "side_wind_mult": 2.5, "friendly_safe": true, "elev": Vector2(-70, 90),
