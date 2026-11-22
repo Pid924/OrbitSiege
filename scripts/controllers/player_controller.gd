@@ -110,7 +110,9 @@ func cycle_weapon(step: int, index := -1) -> void:
 	if step != 0:
 		index = game.team_weapon[team] + step
 	for i in Weapons.LIST.size():
-		if step == 0 or game.weapon_available(team, Weapons.LIST[posmod(index, Weapons.LIST.size())]):
+		var id: String = Weapons.LIST[posmod(index, Weapons.LIST.size())]
+		# Cycling never lands on slot 0: picking it uses the element power at once.
+		if step == 0 or (id != "special" and game.weapon_available(team, id)):
 			break
 		index += step
 	game.submit_command({"type": "weapon", "team": team, "index": index})

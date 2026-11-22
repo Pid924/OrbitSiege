@@ -3,6 +3,8 @@ extends Node2D
 
 signal fell(unit)
 
+const Weapons := preload("res://scripts/sim/weapons.gd")
+
 const MAX_HP := 100
 const WALK_SPEED := 45.0
 const CLIMB := 12  # steepest step (px) a unit walks up
@@ -28,6 +30,12 @@ var buff_keep := false  # picked up after firing this turn: keep through this tu
 var barrier := false  # crate barrier: blocks the next shell damage, until this unit's next turn
 var rooted_turns := 0  # own turns left during which this unit cannot walk
 var skip_next := false  # netted again while netted: its next turn is skipped
+var element := ""  # fire / water / wood: suit color, slot-1 shell, slot-0 power, walk speed
+var suit := Color.WHITE
+var walk_mult := 1.0
+var special_used := false  # element power (slot 0) is once per unit per match
+var order_num := 0  # place in this round's turn order (0 = none)
+var order_done := false  # already had its turn this round
 var fell_into_core := false
 var aim_range := Vector2(-70, 90)  # allowed elevation above level (weapon range + ground tilt), for drawing
 var tilt := 0.0  # degrees the ground rises toward the unit's local right, see ground_tilt()
@@ -46,6 +54,12 @@ func setup(id: int, team_id: int, display_name: String, team_color: Color, physi
 	terrain = terrain_ref
 	up = physics.up_at(position)
 	aim_angle = 0.6 if team == 0 else -0.6
+
+
+func set_element(e: String) -> void:
+	element = e
+	suit = Weapons.ELEMENT_INFO[e].color
+	walk_mult = Weapons.ELEMENT_INFO[e].walk
 
 
 func body_center() -> Vector2:
@@ -108,7 +122,7 @@ func walk(dir: int, dt: float, safe := false) -> void:
 		return
 	var start := position
 	var tangent := Vector2(-up.y, up.x)
-	var next := position + tangent * dir * WALK_SPEED * dt
+	var next := position + tangent * dir * WALK_SPEED * walk_mult * dt
 	var climbed := 0
 	while terrain.is_solid(next) and climbed < CLIMB:
 		next += up
@@ -207,7 +221,8 @@ func _draw() -> void:
 	# barrel
 	draw_line(Vector2(0, -10), Vector2(0, -10) + local_aim * 16.0, Color(0.85, 0.85, 0.9), 4.0)
 	# suit + helmet
-	draw_circle(Vector2(0, -10), 8.0, color)
+	draw_circle(Vector2(0, -10), 8.0, suit)  # element color; legs, antenna and HP bar keep the team color
+	draw_arc(Vector2(0, -10), 8.0, 0, TAU, 20, color, 1.5)
 	draw_circle(Vector2(0, -11), 5.0, Color(0.1, 0.15, 0.25))
 	draw_circle(Vector2(1.5, -12.5), 1.6, Color(0.7, 0.95, 1.0))
 	draw_line(Vector2(0, -18), Vector2(0, -23), color.lightened(0.3), 1.5)
@@ -242,6 +257,12 @@ func _draw() -> void:
 	if not buffs.is_empty():
 		draw_circle(dot, 3.5, Color(1.0, 0.8, 0.25))
 	draw_string(font, head + Vector2(-30, -4), unit_name, HORIZONTAL_ALIGNMENT_CENTER, 60, 11, Color(1, 1, 1, 0.9))
+	if order_num > 0 and alive:
+		# This round's turn order, right of the HP bar (dim once the unit has played).
+		var spot := head + Vector2(30, 3)
+		var a := 0.35 if order_done and not is_active else 1.0
+		draw_circle(spot, 7.5, Color(color, 0.9 * a))
+		draw_string(font, spot + Vector2(-7.5, 4.5), str(order_num), HORIZONTAL_ALIGNMENT_CENTER, 15, 12, Color(0.05, 0.05, 0.1, a))
 	if is_active:
 		var y := -14.0 + sin(_bob * 5.0) * 3.0
 		var tip := head + Vector2(0, y)

@@ -11,16 +11,16 @@ signal closed
 
 ## One short line per weapon (the full text is on the weapon panel in game).
 const TIPS := {
-	"plasma": "กระสุนพื้นฐาน ระเบิดวงกว้าง ใช้ได้ตลอด",
+	"plasma": "ตามธาตุ: ไฟ ดาเมจ 40 มุม 0-30 · น้ำ 30 มุม 0-50 วงกว้าง ไม่โดนเพื่อน · ไม้ 20 มุม 0-90",
 	"cluster": "แตกเป็นลูกย่อย 5 ลูก โดนตัวจัง ๆ แตก 8 ลูก กินพื้นเยอะ",
 	"driller": "เจาะพื้นเป็นหลุมใหญ่ ทำให้ศัตรูร่วง โดนตัวตรงๆ +20 ใช้ได้ตั้งแต่รอบ 2",
 	"double": "ยิง 2 นัดในตาเดียว มุมและแรงเดิม",
 	"triple": "ยิง 3 นัดแบบพัด ทีละนัด ไม่โดนเพื่อน",
 	"rage": "ใช้ได้เมื่อ HP ไม่เกิน 40% ระเบิดแรงที่สุด",
 	"snare": "ตาข่ายวงกว้าง สุ่มมุมปืนศัตรู เดินและหมุนปืนไม่ได้ 1 ตา",
-	"mender": "ฮีลเพื่อน 25 HP และนัดถัดไปของทีมแรงขึ้น 50%",
 	"seeker": "เมื่อศัตรูอยู่ในระยะ 300 จะล็อกแล้วเลี้ยวไล่เอง",
 	"sky": "ยิงลูกบอกพิกัด ลำแสงจากฟ้าถล่มพื้นตรงนั้นเป็นวงกว้าง",
+	"special": "ตัวละ 1 ครั้ง ไม่เสียตา: ไฟ ทีมดาเมจ +25% · น้ำ ศัตรูดาเมจ -25% · ไม้ ทีม +25 HP (2 รอบ)",
 }
 
 var dont_show: CheckBox
@@ -59,7 +59,7 @@ func build(button_text: String) -> void:
 		"จบทุกรอบมีกล่องเสบียงตก เก็บได้กระสุนพิเศษ +1",
 		"บางรอบมีเหตุการณ์สุ่ม: อาวุธแรงขึ้น/เบาลง\nเวลาเพิ่ม/ลด วงระเบิดกว้างขึ้น/แคบลง",
 		"อาวุธแต่ละแบบเล็งได้ในช่วงองศาของตัวเอง\nเดินซ้าย/ขวาเพื่อหันปืนไปอีกฝั่ง",
-		"ยิงพื้นใต้เท้าศัตรูให้ร่วงลงไปก็ชนะได้",
+		"ทีมละ 3 ธาตุ: ไฟ ชนะ ไม้ · ไม้ ชนะ น้ำ · น้ำ ชนะ ไฟ\nกระสุนเบอร์ 1 และท่าพิเศษเบอร์ 0 เปลี่ยนตามธาตุ",
 	]
 	var controls := [
 		"ลูกศรซ้าย/ขวา กดค้าง = เดิน",
@@ -91,7 +91,10 @@ func build(button_text: String) -> void:
 		var uses := L.t("กระสุน ∞") if not w.has("ammo") else L.t("%d ครั้งต่อเกม") % int(w.ammo)
 		var dmg := L.t("ไม่มีดาเมจ") if w.damage <= 0.0 else L.t("ดาเมจ %d") % int(w.damage)
 		var angle := L.t("มุม %d°-%d°") % [int(w.elev.x), int(w.elev.y)] if w.has("elev") else ""
-		var head := _text("%d. %s  ·  %s  ·  %s  ·  %s" % [(i + 1) % 10, w.name, dmg, uses, angle], Vector2(746, row_y - 4), 19, Vector2(830, 26))
+		var line := "%d. %s  ·  %s  ·  %s  ·  %s" % [(i + 1) % 10, w.name, dmg, uses, angle]
+		if Weapons.LIST[i] == "plasma" or Weapons.LIST[i] == "special":
+			line = "%d. %s  ·  %s" % [(i + 1) % 10, w.name, uses if Weapons.LIST[i] == "plasma" else L.t("ตัวละ 1 ครั้งต่อเกม")]
+		var head := _text(line, Vector2(746, row_y - 4), 19, Vector2(830, 26))
 		head.add_theme_color_override("font_color", w.color.lightened(0.3))
 		var desc := _text(L.t(TIPS.get(Weapons.LIST[i], w.desc)), Vector2(746, row_y + 24), 16, Vector2(830, 26))
 		desc.modulate = Color(1, 1, 1, 0.85)

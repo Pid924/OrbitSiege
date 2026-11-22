@@ -242,7 +242,7 @@ func _build_weapon_panel() -> void:
 		card.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		card.focus_mode = Control.FOCUS_NONE  # keep SPACE for firing
 		# Hover help shows above the panel (Godot's own tooltip would fall off the screen bottom).
-		card.mouse_entered.connect(_show_tip.bind(card, w))
+		card.mouse_entered.connect(_show_tip.bind(card, i))
 		card.mouse_exited.connect(func(): weapon_tip.visible = false)
 		card.pressed.connect(_on_card_pressed.bind(i))
 		panel.add_child(card)
@@ -360,12 +360,22 @@ func _process(delta: float) -> void:
 		_update_weapon_hint(delta)
 	skip_button.visible = not game.autoplay and game.is_turn_of(game.local_team)
 	var view_team: int = game.local_team if not game.autoplay else game.current_team
+	var panel_unit = _panel_unit()
 	for i in weapon_cards.size():
 		var id: String = Weapons.LIST[i]
-		var selected: bool = id == current
+		var selected: bool = i == game.team_weapon[game.current_team]
 		var left: int = game.ammo_left(view_team, id)
 		var usable: bool = game.weapon_available(view_team, id) if game.current_team == view_team else left != 0
 		ammo_labels[i].text = "∞" if left < 0 else "x%d" % left
+		if id == "plasma" or id == "special":
+			# These two follow the playing unit's element.
+			var icon_path: String = Weapons.get_def(game.weapon_for(id, panel_unit)).icon
+			if weapon_cards[i].get_meta("icon_path", "") != icon_path:
+				weapon_cards[i].set_meta("icon_path", icon_path)
+				weapon_cards[i].icon = load(icon_path)
+		if id == "special":
+			selected = false
+			ammo_labels[i].text = ("x0" if panel_unit.special_used else "x1") if panel_unit else ""
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
 			ammo_labels[i].text = "HP<=40%"
 		elif Weapons.get_def(id).has("min_round") and game.round_number < Weapons.get_def(id).min_round and left != 0:
@@ -382,6 +392,12 @@ func _process(delta: float) -> void:
 		var line := L.t("%s  เหลือ %d คน") % [game.team_name(team), game.alive_count(team)]
 		if game.team_boost[team] > 0.0:
 			line += L.t("   (+) นัดถัดไปแรงขึ้น %d%%") % int(game.team_boost[team] * 100)
+		if game.team_rally[team] > 0:
+			line += L.t("   ดาเมจ +%d%% อีก %d รอบ") % [roundi(Weapons.SPECIAL_DMG * 100), game.team_rally[team]]
+		if game.team_curse[team] > 0:
+			line += L.t("   ดาเมจ -%d%% อีก %d รอบ") % [roundi(Weapons.SPECIAL_DMG * 100), game.team_curse[team]]
+		if game.team_bloom[team] > 0:
+			line += L.t("   +%d HP ต้นรอบหน้า") % Weapons.SPECIAL_HEAL
 		lines.append(line)
 	teams_label.text = "\n".join(lines)
 	# Bars sit right of the longest team line (the text length depends on the language).
@@ -417,7 +433,14 @@ func _update_weapon_hint(delta: float) -> void:
 	current_card.modulate = Color(1, 1, 1).lerp(Color(1.6, 1.4, 0.7), glow) if show else Color.WHITE
 
 
-func _show_tip(card: Control, w: Dictionary) -> void:
+## The unit whose element decides slot 1 and slot 0 on the panel: the one playing for the viewed team.
+func _panel_unit():
+	var view_team: int = game.local_team if not game.autoplay else game.current_team
+	return game.active_unit if game.active_unit and game.active_unit.team == view_team else null
+
+
+func _show_tip(card: Control, index: int) -> void:
+	var w := Weapons.get_def(game.weapon_for(Weapons.LIST[index], _panel_unit()))
 	if weapon_tip == null:
 		weapon_tip = PanelContainer.new()
 		var box := StyleBoxFlat.new()
@@ -463,6 +486,8 @@ func _buff_text(u) -> String:
 
 ## Hover text for a weapon card: what it does, its numbers, and whether it hurts your team.
 func _weapon_tooltip(w: Dictionary) -> String:
+	if w.has("special"):
+		return "%s\n%s\n%s" % [w.name, L.t(w.desc), L.t("ตัวละ 1 ครั้งต่อเกม")]
 	var friendly: String
 	if w.get("friendly_safe", false):
 		friendly = L.t("ไม่โดนพวกเดียวกัน")
@@ -478,6 +503,10 @@ func _weapon_tooltip(w: Dictionary) -> String:
 
 func _stats_text(w: Dictionary) -> String:
 	var parts := []
+	if w.has("special"):
+		return L.t("กดแล้วยังยิงต่อในตานี้ได้")
+	if w.has("element"):
+		parts.append(L.t("ธาตุ%s") % L.t(Weapons.ELEMENT_INFO[w.element].name))
 	if w.has("heal"):
 		parts.append(L.t("ฮีล %d") % w.heal)
 		parts.append(L.t("ดาเมจศัตรู %d") % w.damage)

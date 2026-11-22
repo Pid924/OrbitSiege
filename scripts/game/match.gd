@@ -36,15 +36,15 @@ const DRIFT_GRAVITY := 260.0
 const ABYSS_MARGIN := 70.0  # island stages: below world height minus this, a unit is lost in the gas giant
 const REFIRE_DELAY := 0.35
 const MAX_WIND := 55.0
-const CRATE_TURNS := 4  # a crate nobody picks up within this many turns disappears
+const CRATE_ROUNDS := 2  # a crate nobody picks up within this many rounds (from landing) disappears
 const MAX_CRATES := 6
 const EVENT_CHANCE := 0.4
 ## Round events last a whole round. Each has a random size: damage and blast -20%..+20%
 ## (steps of 5%), turn time -10..+10 s. Applied in _fire and _start_turn.
 const EVENT_KINDS := ["dmg", "time", "blast"]
 ## Crates hold one extra use of any weapon except the unlimited Plasma Shell.
-const AMMO_LOOT := ["cluster", "driller", "double", "triple", "rage", "snare", "mender", "seeker", "sky"]
-const TEAM_COLORS := [Color(0.35, 0.8, 1.0), Color(1.0, 0.45, 0.4)]
+const AMMO_LOOT := ["cluster", "driller", "double", "triple", "rage", "snare", "seeker", "sky"]
+const TEAM_COLORS := [Color(1.0, 0.82, 0.3), Color(0.8, 0.5, 1.0)]  # gold / violet; units wear their element color
 const TEAM_NAMES := ["ผู้เล่น", "บอท"]
 const UNIT_NAMES := [["Nova", "Orion", "Vega"], ["Zr-1", "Zr-2", "Zr-3"]]
 
@@ -91,7 +91,11 @@ var time_used := {}  # unit_id -> seconds spent aiming this round
 var last_round_time := {}  # time_used of the previous round, for the HUD
 var turn_start_time := TURN_TIME
 var round_event := {}  # {"kind": "dmg"|"time"|"blast", "value": int} or {} for a calm round
-var team_boost := [0.0, 0.0]  # extra damage for the team's next shot, from Nano Mender
+var team_boost := [0.0, 0.0]  # extra damage for the team's next shot (legacy weapon "boost" key)
+## Element powers, in rounds left (the round of use counts): own damage up, own damage down, heal at round start.
+var team_rally := [0, 0]
+var team_curse := [0, 0]
+var team_bloom := [0, 0]
 var shot_dmg_mult := 1.0
 var shot_radius_mult := 1.0
 var pending_strikes: Array = []  # {"pos", "axis", "weapon", "time"} for sky beams on their way down
@@ -311,6 +315,7 @@ func _create_units(spawns: Array) -> void:
 			unit.fell.connect(_on_unit_fell)
 			add_child(unit)
 			unit.setup(id, team, UNIT_NAMES[team][i], TEAM_COLORS[team], physics, terrain)
+			unit.set_element(Weapons.ELEMENTS[i % Weapons.ELEMENTS.size()])
 			unit.grounded = true
 			units.append(unit)
 			id += 1
@@ -391,7 +396,15 @@ func is_turn_of(team: int) -> bool:
 func current_weapon_id(team: int = -1) -> String:
 	if team < 0:
 		team = current_team
-	return Weapons.LIST[team_weapon[team]]
+	var id: String = Weapons.LIST[team_weapon[team]]
+	if active_unit and active_unit.team == team:
+		id = Weapons.for_element(id, active_unit.element)
+	return id
+
+
+## A slot's weapon as `unit` would use it (element shell / element power), for the HUD.
+func weapon_for(id: String, unit) -> String:
+	return Weapons.for_element(id, unit.element) if unit else id
 
 
 ## Uses left for a team, or -1 when unlimited.
@@ -404,6 +417,8 @@ func weapon_available(team: int, weapon_id: String) -> bool:
 	if ammo_left(team, weapon_id) == 0:
 		return false
 	var w := Weapons.get_def(weapon_id)
+	if w.has("special"):
+		return active_unit != null and active_unit.team == team and not active_unit.special_used
 	if round_number < w.get("min_round", 0) and not (GameSettings.debug and team == 0):
 		return false  # e.g. Void Driller: no knocking someone off the map with the very first shot
 	if w.has("hp_ratio_max") and not (GameSettings.debug and team == 0):
@@ -442,7 +457,9 @@ func _apply_command(cmd: Dictionary) -> void:
 			active_unit.charge = clampf(cmd.value, 0.0, 1.0)
 		"weapon":
 			var index := posmod(int(cmd.index), Weapons.LIST.size())
-			if weapon_available(current_team, Weapons.LIST[index]):
+			if Weapons.LIST[index] == "special":
+				_use_special()  # slot 0: used right away, the turn goes on with the same weapon
+			elif weapon_available(current_team, Weapons.LIST[index]):
 				team_weapon[current_team] = index
 		"skip":
 			# Ends the turn now. Less time used = an earlier turn next round.
@@ -463,8 +480,8 @@ func _fire(angle: float, power: float) -> void:
 		weapon = "teleport"  # the teleport crate replaces this shot, whatever was picked
 		buffs.erase("teleport")
 	elif not weapon_available(current_team, weapon):
-		weapon = Weapons.LIST[0]
 		team_weapon[current_team] = 0
+		weapon = current_weapon_id()
 	if team_ammo[current_team].has(weapon):
 		team_ammo[current_team][weapon] -= 1
 	var w := Weapons.get_def(weapon)
@@ -478,6 +495,10 @@ func _fire(angle: float, power: float) -> void:
 	if team_boost[current_team] > 0.0 and not w.has("boost"):
 		shot_dmg_mult *= 1.0 + team_boost[current_team]
 		team_boost[current_team] = 0.0
+	if team_rally[current_team] > 0:
+		shot_dmg_mult *= 1.0 + Weapons.SPECIAL_DMG
+	if team_curse[current_team] > 0:
+		shot_dmg_mult *= 1.0 - Weapons.SPECIAL_DMG
 	shot_radius_mult = 1.0 + _event_value("blast") / 100.0
 	shot_dmg_mult *= 1.0 + float(buffs.get("dmg", 0.0))
 	if buffs.has("double"):
@@ -740,7 +761,13 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		var base: float = w.damage
 		if direct and u == unit_at(pos):
 			base += w.get("direct_bonus", 0.0)  # Void Driller hitting a unit before it drills
-		var dmg := int(round(base * f * shot_dmg_mult))
+		var edge := 1.0
+		if w.has("element") and u.element != "":
+			if Weapons.ELEMENT_INFO[w.element].beats == u.element:
+				edge += Weapons.ELEMENT_EDGE
+			elif Weapons.ELEMENT_INFO[u.element].beats == w.element:
+				edge -= Weapons.ELEMENT_EDGE
+		var dmg := int(round(base * f * shot_dmg_mult * edge))
 		if dmg <= 0:
 			continue
 		_hurt(u, dmg, Color(1, 0.85, 0.4))
@@ -959,11 +986,11 @@ func _crate_lands_near(start: Vector2, target: Vector2) -> bool:
 func _tick_crates(delta: float) -> void:
 	for crate in crates.duplicate():
 		crate.tick(delta)
-		if crate.landed and crate.expire_turn < 0:
+		if crate.landed and crate.expire_round < 0:
 			# Each crate's own life starts when it reaches the ground (warp crates: when they pop up).
-			crate.expire_turn = turn_number + CRATE_TURNS
+			crate.expire_round = round_number + CRATE_ROUNDS
 		if crate.landed:
-			crate.turns_left = maxi(0, crate.expire_turn - turn_number)
+			crate.rounds_left = maxi(0, crate.expire_round - round_number)
 		if crate.gone:
 			crates.erase(crate)
 			crate.queue_free()
@@ -974,14 +1001,58 @@ func _tick_crates(delta: float) -> void:
 				break
 
 
-## Every crate lives CRATE_TURNS turns from the moment it lands; one nobody picked up by then disappears.
+## Every crate lives CRATE_ROUNDS rounds from the moment it lands (the landing round counts);
+## one nobody picked up by then disappears when the next round starts.
 func _expire_crates() -> void:
 	for c in crates.duplicate():
-		if c.gone or c.expire_turn < 0 or turn_number < c.expire_turn:
+		if c.gone or c.expire_round < 0 or round_number < c.expire_round:
 			continue
 		_float_text(c.position + Vector2(0, -40), L.t("กล่องวาร์ปหายไป") if c.kind == "warp" else L.t("กล่องหายไป"), Color(1, 0.85, 0.5))
 		crates.erase(c)
 		c.queue_free()
+
+
+## Slot 0: the active unit's element power, once per unit per match. It does not end the turn.
+func _use_special() -> void:
+	if not weapon_available(current_team, "special"):
+		return
+	var u = active_unit
+	u.special_used = true
+	var w := Weapons.get_def(Weapons.for_element("special", u.element))
+	var team: int = u.team
+	sfx.play("heal" if w.special == "bloom" else "zap")
+	var fx := Explosion.new()
+	fx.setup(u.body_center(), 90.0, w.color)
+	add_child(fx)
+	match w.special:
+		"rally":
+			team_rally[team] = Weapons.SPECIAL_ROUNDS
+			_float_text(u.body_center() + Vector2(0, -60), L.t("ทั้งทีมดาเมจ +%d%% 2 รอบ") % roundi(Weapons.SPECIAL_DMG * 100), w.color)
+		"curse":
+			team_curse[1 - team] = Weapons.SPECIAL_ROUNDS
+			_float_text(u.body_center() + Vector2(0, -60), L.t("ศัตรูดาเมจ -%d%% 2 รอบ") % roundi(Weapons.SPECIAL_DMG * 100), w.color)
+		"bloom":
+			team_bloom[team] = Weapons.SPECIAL_ROUNDS - 1  # heals now, then again at the start of each later round
+			_bloom(team)
+
+
+## Verdant Bloom: every living unit of `team` heals SPECIAL_HEAL.
+func _bloom(team: int) -> void:
+	for v in units:
+		if v.alive and v.team == team:
+			var healed: int = v.heal(Weapons.SPECIAL_HEAL)
+			if healed > 0:
+				_float_text(v.body_center() + Vector2(0, -30), "+%d" % healed, Color(0.5, 1.0, 0.55))
+
+
+## Round start: element powers count down a round; a pending Verdant Bloom heals again.
+func _tick_element_powers() -> void:
+	for team in 2:
+		team_rally[team] = maxi(0, team_rally[team] - 1)
+		team_curse[team] = maxi(0, team_curse[team] - 1)
+		if team_bloom[team] > 0:
+			team_bloom[team] -= 1
+			_bloom(team)
 
 
 func _collect(crate, unit) -> void:
@@ -1110,6 +1181,14 @@ func _start_round() -> void:
 		team = 1 - team
 	last_round_time = time_used.duplicate()
 	time_used.clear()
+	# Turn order of this round, shown as a number over every unit.
+	for u in units:
+		u.order_num = 0
+		u.order_done = false
+	for i in round_queue.size():
+		round_queue[i].order_num = i + 1
+	_tick_element_powers()
+	_expire_crates()
 	if round_number > 1:
 		_drop_crate()  # a supply crate after every finished round
 		if GameSettings.STAGES[stage].get("warp_crates", false):
@@ -1141,6 +1220,7 @@ func _start_turn() -> void:
 		while round_queue.is_empty():
 			_start_round()
 		var u = round_queue.pop_front()
+		u.order_done = true
 		u.barrier = false  # a barrier covers until this unit's own next turn
 		if u.alive and u.skip_next:
 			# Double Stasis Net: this turn is lost, counted as the slowest possible (last in next round's order).
@@ -1158,7 +1238,6 @@ func _start_turn() -> void:
 		if u.alive:
 			active_unit = u
 	current_team = active_unit.team
-	_expire_crates()
 	physics.wind = Vector2.from_angle(rng.randf() * TAU) * rng.randf_range(0.0, MAX_WIND)
 	active_unit.is_active = true
 	sfx.play("turn")

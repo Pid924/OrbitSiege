@@ -61,6 +61,8 @@ func begin_turn(u) -> void:
 	walked_for_aim = false
 	candidates.clear()
 	_fill_candidates()
+	if _want_special():
+		game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find("special")})
 	game.submit_command({"type": "weapon", "team": team, "index": Weapons.LIST.find(_pick_weapon())})
 	var crate = _reachable_crate()
 	if crate != null:
@@ -83,7 +85,6 @@ func _fill_candidates() -> void:
 
 
 ## Mostly plasma; uses Last Stand when unlocked, and the special shells now and then.
-## The bot never picks the healer, it only aims at enemies.
 func _pick_weapon() -> String:
 	if game.weapon_available(team, "rage") and rng.randf() < 0.8:
 		return "rage"
@@ -99,6 +100,19 @@ func _pick_weapon() -> String:
 			if roll <= 0.0:
 				return id
 	return "plasma"
+
+
+## Element power (slot 0), once per unit: fire and water use it now and then; wood when the team is hurt.
+func _want_special() -> bool:
+	if not game.weapon_available(team, "special"):
+		return false
+	if unit.element == "wood":
+		var missing := 0
+		for u in game.units:
+			if u.alive and u.team == team:
+				missing += u.MAX_HP - u.hp
+		return missing >= 60
+	return rng.randf() < 0.3
 
 
 func end_turn() -> void:

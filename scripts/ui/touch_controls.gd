@@ -10,6 +10,8 @@ var player  # PlayerController of the local team, or null in autoplay
 var picker: Control
 var picker_cards: Array = []
 var picker_ammo: Array = []
+var picker_icons: Array = []  # slot 1 / slot 0 change with the playing unit's element
+var picker_names: Array = []
 var fine_button: Button
 var held := 0  # how many on-screen buttons are held
 ## Hold buttons track every finger themselves: Godot buttons only follow the first finger,
@@ -200,6 +202,7 @@ func _build_picker() -> void:
 		b.pressed.connect(_pick.bind(i))
 		var icon := TextureRect.new()
 		icon.texture = load(w.icon)
+		picker_icons.append(icon)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.position = Vector2(40, 12)
@@ -208,6 +211,7 @@ func _build_picker() -> void:
 		b.add_child(icon)
 		var name_label := Label.new()
 		name_label.text = w.name
+		picker_names.append(name_label)
 		name_label.position = Vector2(4, 126)
 		name_label.size = Vector2(card_size.x - 8, 30)
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -235,6 +239,13 @@ func open_picker() -> void:
 		var left: int = game.ammo_left(player.team, id)
 		var usable: bool = game.weapon_available(player.team, id)
 		picker_ammo[i].text = "∞" if left < 0 else L.t("เหลือ %d") % left
+		if id == "plasma" or id == "special":
+			# Slot 1 and slot 0 follow the playing unit's element.
+			var real := Weapons.get_def(game.weapon_for(id, game.active_unit))
+			picker_icons[i].texture = load(real.icon)
+			picker_names[i].text = real.name
+		if id == "special":
+			picker_ammo[i].text = L.t("ใช้แล้ว") if game.active_unit.special_used else L.t("ตัวละ 1 ครั้ง")
 		if Weapons.get_def(id).has("hp_ratio_max") and not usable and left != 0:
 			picker_ammo[i].text = L.t("ใช้ได้เมื่อ HP ไม่เกิน 40%")
 		elif Weapons.get_def(id).has("min_round") and game.round_number < Weapons.get_def(id).min_round and left != 0:

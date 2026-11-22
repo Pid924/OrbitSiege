@@ -5,6 +5,8 @@ extends RefCounted
 ##   shots        fire again with the same aim after the previous shell lands
 ##   spread       number of shells fired at once in a fan, spread_deg apart
 ##   elev         Vector2(min, max) barrel angle in degrees above the ground (0 = flat, 90 = straight up)
+##   element      fire / water / wood shell, see ELEMENT_INFO
+##   special      element power, used from slot 0 without ending the turn
 ##   friendly_safe  never hurts (or bursts on) the shooter's own team
 ##   min_round    first round in which it may be fired
 ##   hp_ratio_max only usable while the shooter's HP is at or below this ratio
@@ -19,7 +21,23 @@ extends RefCounted
 ##   miss_carve   crater radius when it bursts in the ground without touching a unit
 ##   direct_bomblets  bomblet count when it bursts right on a unit
 
-const LIST := ["plasma", "cluster", "driller", "double", "triple", "rage", "snare", "mender", "seeker", "sky"]
+## Slot 1 "plasma" turns into the active unit's element shell (plasma_fire / _water / _wood);
+## slot 0 "special" is the unit's once-per-match element power (special_fire / _water / _wood).
+const LIST := ["plasma", "cluster", "driller", "double", "triple", "rage", "snare", "seeker", "sky", "special"]
+
+## Each team has one unit of each element. Fire beats wood, wood beats water, water beats fire:
+## an element shell deals ELEMENT_EDGE more to the element it beats and that much less to the one that beats it.
+const ELEMENTS := ["fire", "water", "wood"]
+const ELEMENT_EDGE := 0.25
+const ELEMENT_INFO := {
+	"fire": {"name": "ไฟ", "color": Color(1.0, 0.36, 0.24), "beats": "wood", "walk": 1.0},
+	"water": {"name": "น้ำ", "color": Color(0.3, 0.62, 1.0), "beats": "fire", "walk": 1.25},
+	"wood": {"name": "ไม้", "color": Color(0.36, 0.85, 0.32), "beats": "water", "walk": 0.75},
+}
+## Element powers (slot 0): how many rounds they last, counting the round they are used in.
+const SPECIAL_ROUNDS := 2
+const SPECIAL_DMG := 0.25
+const SPECIAL_HEAL := 25
 
 const DATA := {
 	# Not in LIST: the shot a teleport crate turns your next shot into.
@@ -29,9 +47,44 @@ const DATA := {
 		"desc": "วาร์ปไปจุดที่กระสุนตก ถ้าไปยืนตรงนั้นไม่ได้ถือว่าพลาด",
 	},
 	"plasma": {
-		"name": "Plasma Shell", "radius": 40.0, "damage": 45.0, "elev": Vector2(0, 45),
+		"name": "Plasma Shell", "radius": 40.0, "damage": 30.0, "elev": Vector2(0, 50),
 		"color": Color(0.4, 0.9, 1.0), "icon": "res://assets/weapons/plasma.png",
-		"desc": "กระสุนพลาสมามาตรฐาน ระเบิดวงกว้าง ดาเมจสูง ใช้ได้ไม่จำกัด",
+		"desc": "กระสุนพลาสมา เปลี่ยนตามธาตุของตัวที่เล่น (ไฟ / น้ำ / ไม้) ใช้ได้ไม่จำกัด",
+	},
+	"plasma_fire": {
+		"name": "Fire Plasma", "radius": 40.0, "damage": 40.0, "elev": Vector2(0, 30), "element": "fire",
+		"color": Color(1.0, 0.45, 0.3), "icon": "res://assets/weapons/plasma_fire.png",
+		"desc": "พลาสมาธาตุไฟ แรงสุดแต่ยิงได้แค่มุมต่ำ ใส่ธาตุไม้แรงขึ้น 25% ใส่ธาตุน้ำเบาลง 25%",
+	},
+	"plasma_water": {
+		"name": "Water Plasma", "radius": 50.0, "damage": 30.0, "elev": Vector2(0, 50), "element": "water", "friendly_safe": true,
+		"color": Color(0.35, 0.7, 1.0), "icon": "res://assets/weapons/plasma_water.png",
+		"desc": "พลาสมาธาตุน้ำ ระเบิดกว้าง ไม่โดนพวกเดียวกัน ใส่ธาตุไฟแรงขึ้น 25% ใส่ธาตุไม้เบาลง 25%",
+	},
+	"plasma_wood": {
+		"name": "Wood Plasma", "radius": 30.0, "damage": 20.0, "elev": Vector2(0, 90), "element": "wood",
+		"color": Color(0.45, 0.9, 0.4), "icon": "res://assets/weapons/plasma_wood.png",
+		"desc": "พลาสมาธาตุไม้ ยิงได้ทุกมุมถึงตั้งฉาก ใส่ธาตุน้ำแรงขึ้น 25% ใส่ธาตุไฟเบาลง 25%",
+	},
+	"special": {
+		"name": "Element Power", "radius": 0.0, "damage": 0.0, "special": true,
+		"color": Color(1.0, 0.9, 0.5), "icon": "res://assets/weapons/special.png",
+		"desc": "ท่าพิเศษตามธาตุของตัวที่เล่น ตัวละครละ 1 ครั้งต่อเกม กดแล้วยังยิงต่อในตานั้นได้",
+	},
+	"special_fire": {
+		"name": "Blaze Rally", "radius": 0.0, "damage": 0.0, "special": "rally",
+		"color": Color(1.0, 0.45, 0.3), "icon": "res://assets/weapons/special_fire.png",
+		"desc": "ทั้งทีมดาเมจ +25% เป็นเวลา 2 รอบ (นับรอบนี้) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
+	},
+	"special_water": {
+		"name": "Tidal Curse", "radius": 0.0, "damage": 0.0, "special": "curse",
+		"color": Color(0.35, 0.7, 1.0), "icon": "res://assets/weapons/special_water.png",
+		"desc": "ทีมศัตรูดาเมจ -25% เป็นเวลา 2 รอบ (นับรอบนี้) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
+	},
+	"special_wood": {
+		"name": "Verdant Bloom", "radius": 0.0, "damage": 0.0, "special": "bloom",
+		"color": Color(0.45, 0.9, 0.4), "icon": "res://assets/weapons/special_wood.png",
+		"desc": "ทั้งทีม +25 HP ทันที และอีก 25 ตอนเริ่มรอบหน้า (2 รอบ) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
 	},
 	"cluster": {
 		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 3, "friendly_safe": true, "elev": Vector2(20, 80),
@@ -63,11 +116,6 @@ const DATA := {
 		"color": Color(0.45, 0.75, 1.0), "icon": "res://assets/weapons/snare.png",
 		"desc": "ปล่อยตาข่ายพลังงานวงกว้าง ศัตรูในวงโดนสุ่มมุมปืนใหม่ และจะเดินและหมุนปืนไม่ได้ในตาถัดไปของตัวเอง\nถ้าโดนซ้ำตอนติดตาข่ายอยู่ จะถูกข้ามตาไปเลย และได้คิวช้าสุดในรอบหน้า",
 	},
-	"mender": {
-		"name": "Nano Mender", "radius": 0.0, "damage": 10.0, "ammo": 2, "heal": 25, "heal_radius": 130.0, "boost": 0.5, "elev": Vector2(10, 80),
-		"color": Color(0.4, 1.0, 0.5), "icon": "res://assets/weapons/mender.png",
-		"desc": "ฮีล 25 HP ให้เพื่อนทุกคนในวง และนัดถัดไปของทีม (อาวุธใดก็ได้) แรงขึ้น 50%",
-	},
 	"seeker": {
 		"name": "Hunter Seeker", "radius": 34.0, "damage": 40.0, "ammo": 1, "elev": Vector2(0, 90),
 		"homing": true, "homing_delay": 0.45, "turn_rate": 3.2, "lock_range": 300.0,
@@ -90,3 +138,10 @@ const DATA := {
 
 static func get_def(id: String) -> Dictionary:
 	return DATA[id]
+
+
+## The real weapon behind a slot for a unit of `element`: slot 1 and slot 0 depend on it.
+static func for_element(id: String, element: String) -> String:
+	if element != "" and (id == "plasma" or id == "special"):
+		return id + "_" + element
+	return id
