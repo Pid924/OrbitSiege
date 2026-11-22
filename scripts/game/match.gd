@@ -762,10 +762,13 @@ func on_detonation(pos: Vector2, weapon_id: String, vel: Vector2, direct := fals
 		if direct and u == unit_at(pos):
 			base += w.get("direct_bonus", 0.0)  # Void Driller hitting a unit before it drills
 		var edge := 1.0
-		if w.has("element") and u.element != "":
-			if Weapons.ELEMENT_INFO[w.element].beats == u.element:
+		var shot_element: String = w.get("element", "")
+		if w.get("elemental", false) and active_unit:
+			shot_element = active_unit.element  # Twin Strike / Trident carry the shooter's element
+		if shot_element != "" and u.element != "":
+			if Weapons.ELEMENT_INFO[shot_element].beats == u.element:
 				edge += Weapons.ELEMENT_EDGE
-			elif Weapons.ELEMENT_INFO[u.element].beats == w.element:
+			elif Weapons.ELEMENT_INFO[u.element].beats == shot_element:
 				edge -= Weapons.ELEMENT_EDGE
 		var dmg := int(round(base * f * shot_dmg_mult * edge))
 		if dmg <= 0:

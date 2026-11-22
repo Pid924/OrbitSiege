@@ -6,6 +6,7 @@ extends RefCounted
 ##   spread       number of shells fired at once in a fan, spread_deg apart
 ##   elev         Vector2(min, max) barrel angle in degrees above the ground (0 = flat, 90 = straight up)
 ##   element      fire / water / wood shell, see ELEMENT_INFO
+##   elemental    takes the shooter's element (edge +/-25% like the element shells)
 ##   special      element power, used from slot 0 without ending the turn
 ##   friendly_safe  never hurts (or bursts on) the shooter's own team
 ##   min_round    first round in which it may be fired
@@ -30,14 +31,14 @@ const LIST := ["plasma", "cluster", "driller", "double", "triple", "rage", "snar
 const ELEMENTS := ["fire", "water", "wood"]
 const ELEMENT_EDGE := 0.25
 const ELEMENT_INFO := {
-	"fire": {"name": "ไฟ", "color": Color(1.0, 0.36, 0.24), "beats": "wood", "walk": 1.0},
+	"fire": {"name": "ไฟ", "color": Color(1.0, 0.14, 0.1), "beats": "wood", "walk": 1.0},
 	"water": {"name": "น้ำ", "color": Color(0.3, 0.62, 1.0), "beats": "fire", "walk": 1.25},
 	"wood": {"name": "ไม้", "color": Color(0.36, 0.85, 0.32), "beats": "water", "walk": 0.75},
 }
 ## Element powers (slot 0): how many rounds they last, counting the round they are used in.
 const SPECIAL_ROUNDS := 2
 const SPECIAL_DMG := 0.25
-const SPECIAL_HEAL := 25
+const SPECIAL_HEAL := 15
 
 const DATA := {
 	# Not in LIST: the shot a teleport crate turns your next shot into.
@@ -53,7 +54,7 @@ const DATA := {
 	},
 	"plasma_fire": {
 		"name": "Fire Plasma", "radius": 40.0, "damage": 40.0, "elev": Vector2(0, 30), "element": "fire",
-		"color": Color(1.0, 0.45, 0.3), "icon": "res://assets/weapons/plasma_fire.png",
+		"color": Color(1.0, 0.25, 0.18), "icon": "res://assets/weapons/plasma_fire.png",
 		"desc": "พลาสมาธาตุไฟ แรงสุดแต่ยิงได้แค่มุมต่ำ ใส่ธาตุไม้แรงขึ้น 25% ใส่ธาตุน้ำเบาลง 25%",
 	},
 	"plasma_water": {
@@ -73,7 +74,7 @@ const DATA := {
 	},
 	"special_fire": {
 		"name": "Blaze Rally", "radius": 0.0, "damage": 0.0, "special": "rally",
-		"color": Color(1.0, 0.45, 0.3), "icon": "res://assets/weapons/special_fire.png",
+		"color": Color(1.0, 0.25, 0.18), "icon": "res://assets/weapons/special_fire.png",
 		"desc": "ทั้งทีมดาเมจ +25% เป็นเวลา 2 รอบ (นับรอบนี้) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
 	},
 	"special_water": {
@@ -84,7 +85,7 @@ const DATA := {
 	"special_wood": {
 		"name": "Verdant Bloom", "radius": 0.0, "damage": 0.0, "special": "bloom",
 		"color": Color(0.45, 0.9, 0.4), "icon": "res://assets/weapons/special_wood.png",
-		"desc": "ทั้งทีม +25 HP ทันที และอีก 25 ตอนเริ่มรอบหน้า (2 รอบ) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
+		"desc": "ทั้งทีม +15 HP ทันที และอีก 15 ตอนเริ่มรอบหน้า (2 รอบ) ใช้ได้ครั้งเดียว กดแล้วยังยิงต่อได้",
 	},
 	"cluster": {
 		"name": "Star Cluster", "radius": 24.0, "carve": 38.0, "damage": 20.0, "ammo": 3, "friendly_safe": true, "elev": Vector2(20, 80),
@@ -99,12 +100,14 @@ const DATA := {
 	"double": {
 		"name": "Twin Strike", "radius": 30.0, "damage": 40.0, "ammo": 2, "shots": 2, "elev": Vector2(0, 60),
 		"color": Color(0.5, 1.0, 0.7), "icon": "res://assets/weapons/double.png",
-		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น",
+		"elemental": true,
+		"desc": "ยิงได้ 2 ครั้งในตาเดียว ด้วยมุมและแรงเดิม นัดที่สองซ้ำจุดเดิมให้หลุมลึกขึ้น\nใช้ธาตุของคนยิง ชนะธาตุ +25% แพ้ธาตุ -25%",
 	},
 	"triple": {
 		"name": "Trident", "radius": 26.0, "damage": 40.0, "ammo": 4, "spread": 3, "spread_deg": 6.0, "volley_gap": 0.5, "side_wind_mult": 2.5, "friendly_safe": true, "elev": Vector2(-70, 90),
 		"color": Color(1.0, 0.95, 0.45), "icon": "res://assets/weapons/triple.png",
-		"desc": "ยิง 3 นัดแบบพัด ทีละนัดห่างกัน 0.5 วินาที เล็งได้ทุกมุม ลูกข้างโดนลมแรงกว่าลูกหลัก ไม่โดนเพื่อนร่วมทีม",
+		"elemental": true,
+		"desc": "ยิง 3 นัดแบบพัด ทีละนัดห่างกัน 0.5 วินาที เล็งได้ทุกมุม ลูกข้างโดนลมแรงกว่าลูกหลัก ไม่โดนเพื่อนร่วมทีม\nใช้ธาตุของคนยิง ชนะธาตุ +25% แพ้ธาตุ -25%",
 	},
 	"rage": {
 		"name": "Last Stand", "radius": 60.0, "damage": 80.0, "ammo": 1, "hp_ratio_max": 0.4, "elev": Vector2(0, 60),

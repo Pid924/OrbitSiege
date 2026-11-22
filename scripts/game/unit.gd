@@ -188,6 +188,44 @@ func die() -> void:
 	queue_redraw()
 
 
+## Team 0: the round-helmet astronaut. Suit and outline in the element color.
+func _draw_astronaut(local_aim: Vector2) -> void:
+	var edge := suit.lightened(0.35)
+	draw_rect(Rect2(-6, -5, 4, 5), suit.darkened(0.45))
+	draw_rect(Rect2(2, -5, 4, 5), suit.darkened(0.45))
+	draw_line(Vector2(0, -10), Vector2(0, -10) + local_aim * 16.0, Color(0.85, 0.85, 0.9), 4.0)
+	draw_circle(Vector2(0, -10), 8.0, suit)
+	draw_arc(Vector2(0, -10), 8.5, 0, TAU, 24, edge, 2.0)
+	draw_circle(Vector2(0, -11), 5.0, Color(0.1, 0.15, 0.25))
+	draw_circle(Vector2(1.5, -12.5), 1.6, Color(0.7, 0.95, 1.0))
+	draw_line(Vector2(0, -18), Vector2(0, -23), edge, 1.5)
+	draw_circle(Vector2(0, -24), 1.8, edge.lightened(0.3))
+
+
+## Team 1: a boxy tracked robot with a glowing visor. Dark metal body, outline and visor in the element color.
+func _draw_robot(local_aim: Vector2) -> void:
+	var metal := Color(0.2, 0.22, 0.28)
+	var edge := suit.lightened(0.2)
+	# tracks
+	draw_rect(Rect2(-9, -5, 18, 5), Color(0.12, 0.12, 0.15))
+	for x in [-6.0, 0.0, 6.0]:
+		draw_circle(Vector2(x, -2.5), 2.0, Color(0.45, 0.45, 0.5))
+	draw_line(Vector2(0, -11), Vector2(0, -11) + local_aim * 16.0, Color(0.7, 0.72, 0.78), 4.0)
+	# body
+	var body := Rect2(-8, -19, 16, 14)
+	draw_rect(body, metal)
+	draw_rect(body, edge, false, 2.0)
+	# visor band and eye
+	draw_rect(Rect2(-6, -16, 12, 4), suit)
+	var blink := 1.0 if fmod(_bob, 3.0) > 0.12 else 0.2
+	draw_circle(Vector2(2, -14), 1.5, Color(1, 1, 1, blink))
+	# twin antennae
+	draw_line(Vector2(-5, -19), Vector2(-6, -24), edge, 1.5)
+	draw_line(Vector2(5, -19), Vector2(6, -24), edge, 1.5)
+	draw_rect(Rect2(-7.5, -25.5, 3, 3), suit)
+	draw_rect(Rect2(4.5, -25.5, 3, 3), suit)
+
+
 func _process(delta: float) -> void:
 	_bob += delta
 	queue_redraw()
@@ -215,18 +253,10 @@ func _draw() -> void:
 		for k in 6:
 			var a := Vector2(0, -10) + local_aim * (16.0 + guide_len * k / 6.0)
 			draw_circle(a, 2.0, Color(1, 1, 1, 0.8 - k * 0.1))
-	# legs
-	draw_rect(Rect2(-6, -5, 4, 5), color.darkened(0.4))
-	draw_rect(Rect2(2, -5, 4, 5), color.darkened(0.4))
-	# barrel
-	draw_line(Vector2(0, -10), Vector2(0, -10) + local_aim * 16.0, Color(0.85, 0.85, 0.9), 4.0)
-	# suit + helmet
-	draw_circle(Vector2(0, -10), 8.0, suit)  # element color; legs, antenna and HP bar keep the team color
-	draw_arc(Vector2(0, -10), 8.0, 0, TAU, 20, color, 1.5)
-	draw_circle(Vector2(0, -11), 5.0, Color(0.1, 0.15, 0.25))
-	draw_circle(Vector2(1.5, -12.5), 1.6, Color(0.7, 0.95, 1.0))
-	draw_line(Vector2(0, -18), Vector2(0, -23), color.lightened(0.3), 1.5)
-	draw_circle(Vector2(0, -24), 1.8, color.lightened(0.5))
+	if team == 0:
+		_draw_astronaut(local_aim)
+	else:
+		_draw_robot(local_aim)
 	draw_set_transform(Vector2.ZERO, 0.0)
 	if rooted_turns > 0:
 		var c := up * 9.0
@@ -241,7 +271,7 @@ func _draw() -> void:
 	var head := up * 36.0
 	var bar := Rect2(head + Vector2(-20, 0), Vector2(40, 6))
 	var fill := float(hp) / MAX_HP
-	var bar_color := color if fill > 0.4 else color.lerp(Color(1.0, 0.85, 0.3), 0.5)
+	var bar_color := suit  # HP bar in the element color
 	draw_rect(bar, Color(0, 0, 0, 0.65))
 	draw_rect(Rect2(bar.position, Vector2(40.0 * fill, 6)), bar_color)
 	draw_rect(bar, Color(1, 1, 1, 0.4), false, 1.0)

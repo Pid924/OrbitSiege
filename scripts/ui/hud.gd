@@ -507,6 +507,12 @@ func _stats_text(w: Dictionary) -> String:
 		return L.t("กดแล้วยังยิงต่อในตานี้ได้")
 	if w.has("element"):
 		parts.append(L.t("ธาตุ%s") % L.t(Weapons.ELEMENT_INFO[w.element].name))
+	elif w.get("elemental", false):
+		var shooter = _panel_unit()
+		if shooter:
+			parts.append(L.t("ธาตุ%s") % L.t(Weapons.ELEMENT_INFO[shooter.element].name))
+		else:
+			parts.append(L.t("ธาตุตามคนยิง"))
 	if w.has("heal"):
 		parts.append(L.t("ฮีล %d") % w.heal)
 		parts.append(L.t("ดาเมจศัตรู %d") % w.damage)
